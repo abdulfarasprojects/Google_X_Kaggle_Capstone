@@ -19,6 +19,8 @@ A conversational AI-powered Telegram bot that helps users track their weight los
 
 ## 🌟 Features
 
+This Telegram bot is a friendly, privacy-first AI weight loss companion designed to make healthy habits easier to build and track. It lets users log meals, workouts, water intake, sleep, and daily steps in a conversation—without judgment, tedious apps, or spreadsheets. With gentle nudges, smart batch processing, and weekly progress reports, it adapts to each user’s goals and schedule. The bot supports dietary restrictions, respects privacy, and recovers intelligently from errors or ambiguities, making it a trustworthy partner for sustainable weight management and wellness.
+
 ### ✅ Completed (Phase 1 MVP)
 - **Conversational Onboarding**: Step-by-step profile setup with personalized calorie goals
 - **User Profile Management**: Secure storage of demographics, goals, and preferences
