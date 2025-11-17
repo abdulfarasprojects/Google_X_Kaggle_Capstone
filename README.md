@@ -4,7 +4,7 @@ A conversational AI-powered Telegram bot that helps users track their weight los
 
 ![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)
 ![Telegram](https://img.shields.io/badge/Telegram-Bot-blue.svg)
-![Google ADK](https://img.shields.io/badge/Google-ADK-green.svg)
+![Google Gemini](https://img.shields.io/badge/Google-Gemini-green.svg)
 ![SQLite](https://img.shields.io/badge/Database-SQLite-blue.svg)
 
 ## ⚠️ Important Disclaimer
@@ -22,9 +22,10 @@ A conversational AI-powered Telegram bot that helps users track their weight los
 This Telegram bot is a friendly, privacy-first AI weight loss companion designed to make healthy habits easier to build and track. It lets users log meals, workouts, water intake, sleep, and daily steps in a conversation—without judgment, tedious apps, or spreadsheets. With gentle nudges, smart batch processing, and weekly progress reports, it adapts to each user’s goals and schedule. The bot supports dietary restrictions, respects privacy, and recovers intelligently from errors or ambiguities, making it a trustworthy partner for sustainable weight management and wellness.
 
 ### ✅ Completed (Phase 1 MVP)
-- **Conversational Onboarding**: Step-by-step profile setup with personalized calorie goals
+- **Conversational Onboarding**: Step-by-step profile setup with personalized calorie goals (recently fixed and tested)
 - **User Profile Management**: Secure storage of demographics, goals, and preferences
 - **Health-Focused Validation**: BMI checks, safe calorie ranges, and wellness guardrails
+- **Agent Framework**: Custom modular agent system for message routing and conversation management
 
 ### 🚧 In Development
 - **Nutrition Tracking**: Log meals with USDA API integration and calorie calculations
@@ -49,6 +50,7 @@ The Weight Loss Chat Agent is your personal health coach available 24/7 through 
 - Python 3.12+
 - Telegram account
 - Internet connection for API calls
+- **Note**: This project uses Pydantic v2. Make sure your environment has compatible versions of all dependencies.
 
 ### 1. Get Your Telegram Bot Token
 1. Message [@BotFather](https://t.me/botfather) on Telegram
@@ -69,7 +71,7 @@ source .venv/bin/activate  # Linux/macOS
 # .venv\Scripts\activate   # Windows
 
 # Install dependencies
-uv pip install google-adk python-telegram-bot google-generativeai apscheduler pydantic
+uv pip install python-telegram-bot sqlalchemy pydantic pydantic-settings google-generativeai apscheduler cryptography
 ```
 
 ### 3. Environment Configuration
@@ -107,7 +109,7 @@ python -c "from database.models import init_db; init_db()"
 
 ### 5. Start the Bot
 ```bash
-python -m telegram.bot
+python -m telegram_bot.bot
 ```
 
 ### 6. Test Your Bot
@@ -286,7 +288,7 @@ Bot: 📊 Your Weekly Progress Summary
 
 ```
 weight-loss-agent/
-├── agents/                 # AI Agent implementations
+├── agents/                 # Custom agent implementations
 │   ├── root/              # Main orchestrator agent
 │   ├── onboarding/        # User profile setup
 │   ├── nutrition/         # Meal logging & analysis
@@ -307,16 +309,17 @@ weight-loss-agent/
 │   ├── settings.py        # App settings
 │   ├── logging.py         # Logging configuration
 │   └── gemini.py          # Google AI client
-├── telegram/              # Bot integration
+├── telegram_bot/          # Bot integration
 │   └── bot.py             # Telegram bot handler
 └── tests/                 # Test suites
 ```
 
 ### Key Technologies
-- **AI Framework**: Google ADK (Agent Development Kit)
+- **AI Framework**: Custom agent framework with modular design
 - **LLM**: Google Gemini 2.5 Flash
-- **Messaging**: Telegram Bot API with python-telegram-bot
+- **Messaging**: Telegram Bot API with python-telegram-bot v22+
 - **Database**: SQLite with SQLAlchemy ORM
+- **Configuration**: Pydantic v2 with pydantic-settings
 - **Scheduling**: APScheduler for autonomous nudges
 - **APIs**: USDA FoodData Central, Nutritionix (free tiers)
 
@@ -354,10 +357,10 @@ pytest tests/test_tools/
 ### Local Development
 ```bash
 # Start bot in development mode
-python -m telegram.bot
+python -m telegram_bot.bot
 
 # With debug logging
-DEBUG=1 python -m telegram.bot
+DEBUG=1 python -m telegram_bot.bot
 ```
 
 ### Production Deployment (Google Cloud Run)
@@ -437,7 +440,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- **Google ADK**: For the agent development framework
+- **Google Gemini**: For the AI language model capabilities
 - **Telegram**: For the bot platform
 - **USDA**: For nutrition data APIs
 - **Nutritionix**: For food database access

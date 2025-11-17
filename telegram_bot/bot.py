@@ -29,7 +29,38 @@ from config.settings import settings
 from database.init import get_db_session
 from database.models import SessionState, UserProfile, MealLog, WorkoutLog, WellnessLog
 
+from adk_integration import process_agent_message, initialize_agent_runner, shutdown_agent_runner
+
 logger = logging.getLogger(__name__)
+
+
+async def agent_router(user_id: str, message: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Route messages to the ADK agent framework.
+
+    Args:
+        user_id: User identifier
+        message: User message
+        context: Telegram context
+
+    Returns:
+        Dict with 'text' and optional 'keyboard'
+    """
+    try:
+        # Process message with ADK agent runner
+        response = await process_agent_message(user_id, message, context=context)
+
+        # Return response in expected format
+        return {
+            'text': response.get('text', 'I processed your message.'),
+            'keyboard': response.get('keyboard')
+        }
+
+    except Exception as e:
+        logger.error(f"Agent routing failed: {e}")
+        return {
+            'text': "❌ Sorry, I encountered an error. Please try again."
+        }
 
 
 class TelegramBot:
@@ -51,9 +82,17 @@ class TelegramBot:
         self.application: Optional[Application] = None
         self._running = False
 
-    async def initialize(self) -> None:
+    def initialize(self) -> None:
         """Initialize the bot application with handlers."""
         logger.info("Initializing Telegram bot...")
+
+        # Initialize ADK agent runner first
+        try:
+            asyncio.run(initialize_agent_runner())
+            logger.info("ADK agent runner initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize ADK runner: {e}")
+            raise
 
         # Create application
         self.application = Application.builder().token(settings.telegram_bot_token).build()
@@ -67,9 +106,7 @@ class TelegramBot:
         # Add error handler
         self.application.add_error_handler(self._handle_error)
 
-        # Set bot commands
-        await self._set_bot_commands()
-
+        # Set bot commands (this needs to be async, but we'll handle it in start_polling)
         logger.info("Telegram bot initialized successfully")
 
     def _add_command_handlers(self) -> None:
@@ -86,6 +123,7 @@ class TelegramBot:
         # Admin commands
         self.application.add_handler(CommandHandler("admin", self._handle_admin))
         self.application.add_handler(CommandHandler("stats", self._handle_stats))
+        self.application.add_handler(CommandHandler("resetdb", self._handle_reset_db))
 
     def _add_message_handlers(self) -> None:
         """Add message handlers for different content types."""
@@ -119,53 +157,90 @@ class TelegramBot:
 
     async def _handle_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /start command - initialize user onboarding."""
+        logger.info("🔄 /start command received")
         user = update.effective_user
         if not user:
+            logger.warning("No user in /start update")
             return
 
         user_id = str(user.id)
         logger.info(f"User {user_id} started bot")
 
-        # Check if user profile exists
-        with get_db_session() as session:
-            profile = session.query(UserProfile).filter_by(user_id=user_id).first()
+        try:
+            # Check if user profile exists
+            with get_db_session() as session:
+                profile = session.query(UserProfile).filter_by(user_id=user_id).first()
+                logger.info(f"Database query successful, profile exists: {profile is not None}")
 
-            if profile:
-                # Existing user - welcome back
-                message = (
-                    f"Welcome back, {user.first_name}! 👋\n\n"
-                    "I'm here to help you with your weight loss journey. "
-                    "What would you like to do today?\n\n"
-                    "• Log a meal\n"
-                    "• Record a workout\n"
-                    "• Track wellness metrics\n"
-                    "• View progress\n\n"
-                    "Just tell me what you'd like to do!"
-                )
-            else:
-                # New user - start onboarding
-                message = (
-                    f"Hello {user.first_name}! 👋 Welcome to your personal weight loss assistant!\n\n"
-                    "I'm here to help you track your nutrition, fitness, and wellness "
-                    "to achieve your weight loss goals.\n\n"
-                    "To get started, I need to know a bit about you. "
-                    "What's your age?"
-                )
+                if profile:
+                    # Existing user - welcome back
+                    message = (
+                        f"Welcome back, {user.first_name}! 👋\n\n"
+                        "I'm here to help you with your weight loss journey. "
+                        "What would you like to do today?\n\n"
+                        "• Log a meal\n"
+                        "• Record a workout\n"
+                        "• Track wellness metrics\n"
+                        "• View progress\n\n"
+                        "Just tell me what you'd like to do!"
+                    )
+                    await update.message.reply_text(message)
+                else:
+                    # New user - route to onboarding agent
+                    if self.agent_router:
+                        logger.info("Routing new user to onboarding agent")
+                        try:
+                            # Set typing indicator
+                            await update.message.chat.send_action("typing")
 
-                # Create initial session state for onboarding
-                session_state = SessionState(
-                    batch_id=f"onboard_{user_id}",
-                    user_id=user_id,
-                    batch_type="onboarding",
-                    expires_at=datetime.utcnow() + timedelta(hours=settings.session_timeout_hours)
-                )
-                session.add(session_state)
-                session.commit()
+                            # Process with timeout
+                            response = await asyncio.wait_for(
+                                self.agent_router(user_id, "/start", context),
+                                timeout=settings.bot_response_timeout
+                            )
 
-        await update.message.reply_text(message)
+                            # Send response
+                            if isinstance(response, dict) and 'text' in response:
+                                reply_text = response['text']
+                                reply_markup = response.get('keyboard')
+
+                                if reply_markup:
+                                    await update.message.reply_text(reply_text, reply_markup=reply_markup)
+                                else:
+                                    await update.message.reply_text(reply_text)
+                            else:
+                                await update.message.reply_text(str(response))
+
+                            logger.info("✅ Onboarding start response sent successfully")
+
+                        except asyncio.TimeoutError:
+                            logger.warning("Onboarding start timeout")
+                            await update.message.reply_text(
+                                "⏰ I'm taking too long to respond. Please try again."
+                            )
+                        except Exception as e:
+                            logger.error(f"Error starting onboarding: {e}", exc_info=True)
+                            await update.message.reply_text(
+                                "❌ Sorry, I encountered an error. Please try again."
+                            )
+                    else:
+                        # Fallback if no agent router
+                        message = (
+                            f"Hello {user.first_name}! 👋 Welcome to your personal weight loss assistant!\n\n"
+                            "I'm here to help you track your nutrition, fitness, and wellness "
+                            "to achieve your weight loss goals.\n\n"
+                            "To get started, I need to know a bit about you. "
+                            "What's your age?"
+                        )
+                        await update.message.reply_text(message)
+
+        except Exception as e:
+            logger.error(f"❌ Error in /start handler: {e}", exc_info=True)
+            await update.message.reply_text("❌ Sorry, I encountered an error. Please try again.")
 
     async def _handle_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /help command - show help information."""
+        logger.info("🔄 /help command received")
         help_text = (
             "🤖 Weight Loss Assistant Help\n\n"
             "I can help you track:\n"
@@ -186,6 +261,7 @@ class TelegramBot:
         )
 
         await update.message.reply_text(help_text)
+        logger.info("✅ /help response sent")
 
     async def _handle_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /status command - show user status."""
@@ -263,6 +339,24 @@ class TelegramBot:
         # Admin functions would go here
         await update.message.reply_text("🔧 Admin panel - implement admin functions here")
 
+    async def _handle_reset_db(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /resetdb command - reset database for testing (admin only)."""
+        user = update.effective_user
+        if not user or str(user.id) != settings.telegram_admin_user_id:
+            await update.message.reply_text("❌ Admin access denied.")
+            return
+
+        try:
+            from database.init import reset_database
+            success = reset_database()
+            if success:
+                await update.message.reply_text("✅ Database reset successfully. All data has been deleted.")
+            else:
+                await update.message.reply_text("❌ Database reset failed.")
+        except Exception as e:
+            logger.error(f"Database reset error: {e}")
+            await update.message.reply_text("❌ Error resetting database.")
+
     async def _handle_stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /stats command - show bot statistics (admin only)."""
         user = update.effective_user
@@ -275,9 +369,11 @@ class TelegramBot:
 
     async def _handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle text messages - route to appropriate agent."""
+        logger.info("🔄 Text message received")
         user = update.effective_user
         message = update.message
         if not user or not message or not message.text:
+            logger.warning("Invalid message received - missing user, message, or text")
             return
 
         user_id = str(user.id)
@@ -287,6 +383,7 @@ class TelegramBot:
 
         # Route to agent framework
         if self.agent_router:
+            logger.info("Routing to agent framework")
             try:
                 # Set typing indicator
                 await update.message.chat.send_action("typing")
@@ -309,20 +406,25 @@ class TelegramBot:
                 else:
                     await message.reply_text(str(response))
 
+                logger.info("✅ Agent response sent successfully")
+
             except asyncio.TimeoutError:
+                logger.warning("Agent response timeout")
                 await message.reply_text(
                     "⏰ I'm taking too long to respond. Please try again."
                 )
             except Exception as e:
-                logger.error(f"Error processing message: {e}")
+                logger.error(f"Error processing message: {e}", exc_info=True)
                 await message.reply_text(
                     "❌ Sorry, I encountered an error. Please try again."
                 )
         else:
+            logger.info("No agent router available, using fallback")
             # Fallback response
             await message.reply_text(
                 "🤖 I'm still learning! Please use /help to see what I can do."
             )
+            logger.info("✅ Fallback response sent")
 
     async def _handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle callback queries from inline keyboards."""
@@ -411,23 +513,28 @@ class TelegramBot:
             logger.error(f"Failed to send message to {user_id}: {e}")
             return False
 
-    async def start_polling(self) -> None:
+    def start_polling(self) -> None:
         """Start the bot with polling (for development)."""
-        if not self.application:
-            await self.initialize()
-
-        logger.info("Starting bot with polling...")
+        logger.info("🚀 Starting bot initialization...")
+        # Initialize synchronously
+        self.initialize()
+        logger.info("✅ Bot initialized successfully")
+        
+        logger.info("📡 Starting polling...")
         self._running = True
 
         try:
-            await self.application.run_polling(
+            # run_polling() is synchronous and blocks
+            self.application.run_polling(
                 allowed_updates=Update.ALL_TYPES,
                 drop_pending_updates=True
             )
         except Exception as e:
-            logger.error(f"Bot polling failed: {e}")
+            logger.error(f"❌ Bot polling failed: {e}", exc_info=True)
+            raise
         finally:
             self._running = False
+            logger.info("🛑 Bot polling stopped")
 
     async def start_webhook(self, webhook_url: str, port: int = 8080) -> None:
         """
@@ -460,6 +567,13 @@ class TelegramBot:
         logger.info("Stopping bot...")
         self._running = False
 
+        # Shutdown ADK runner
+        try:
+            await shutdown_agent_runner()
+            logger.info("ADK runner shutdown complete")
+        except Exception as e:
+            logger.error(f"Error shutting down ADK runner: {e}")
+
         if self.application:
             await self.application.stop()
             await self.application.shutdown()
@@ -471,7 +585,26 @@ class TelegramBot:
 
 
 # Global bot instance
-bot = TelegramBot()
+bot = TelegramBot(agent_router=agent_router)
 
 # Export key classes and functions
 __all__ = ['TelegramBot', 'bot']
+
+
+def main():
+    """Main entry point for running the bot."""
+    try:
+        bot.start_polling()
+    except KeyboardInterrupt:
+        logger.info("Bot stopped by user")
+        import asyncio
+        asyncio.run(bot.stop())
+    except Exception as e:
+        logger.error(f"Bot failed to start: {e}")
+        if bot.is_running:
+            import asyncio
+            asyncio.run(bot.stop())
+
+
+if __name__ == "__main__":
+    main()

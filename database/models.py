@@ -279,7 +279,7 @@ class SessionState(Base):
 
     # Constraints
     __table_args__ = (
-        CheckConstraint("batch_type IN ('meal', 'workout', 'wellness') OR batch_type IS NULL", name='check_batch_type'),
+        CheckConstraint("batch_type IN ('meal', 'workout', 'wellness', 'onboarding') OR batch_type IS NULL", name='check_batch_type'),
         Index('idx_sessions_expires', 'expires_at'),
     )
 
