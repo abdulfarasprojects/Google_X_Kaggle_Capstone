@@ -20,12 +20,37 @@ from datetime import datetime, timedelta
 
 from google import genai
 from google.adk import agents, sessions
+from google.adk.models import Gemini
+from google.genai import Client, types
 from google.api_core import exceptions as google_exceptions
+from functools import cached_property
+from google.genai import Client, types
+from functools import cached_property
 
 from config.settings import settings
 from config.logging import error_context, log_performance, ErrorHandler
 from database.init import get_db_session
 from database.models import ApiUsage
+
+
+class PatchedGemini(Gemini):
+    """
+    Patched Gemini model that properly configures API authentication.
+    
+    The base Gemini class doesn't pass API keys to the Client, so we override
+    the api_client property to include the API key from settings.
+    """
+    
+    @cached_property
+    def api_client(self):
+        """Override api_client to include API key authentication."""
+        return Client(
+            api_key=settings.google_genai_api_key,
+            http_options=types.HttpOptions(
+                headers=self._tracking_headers,
+                retry_options=self.retry_options,
+            )
+        )
 
 logger = logging.getLogger(__name__)
 

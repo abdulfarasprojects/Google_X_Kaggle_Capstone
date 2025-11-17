@@ -14,10 +14,10 @@ setting up their weight loss profile step by step.
 
 import json
 from typing import Dict, Any, Optional, List
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from agents.base import BaseAgent, AgentResponse, BaseTool
-from database.models import UserProfile
+from agents.base import AgentResponse
+from database.models import UserProfile, SessionState
 from database.init import get_db_session
 from tools.profile_validator import validate_user_input, suggest_calorie_goal
 from config.logging import get_logger
@@ -25,66 +25,7 @@ from config.logging import get_logger
 logger = get_logger(__name__)
 
 
-class OnboardingTool(BaseTool):
-    """Tool for onboarding-specific operations."""
-
-    def __init__(self):
-        super().__init__(
-            name="onboarding_assistance",
-            description="Handle onboarding workflow steps and profile creation"
-        )
-
-    async def execute(self, action: str, **kwargs) -> Any:
-        """Execute onboarding tool actions."""
-        if action == "validate_profile":
-            return await validate_user_input(
-                kwargs.get("profile_data", {}),
-                "profile",
-                kwargs.get("existing_profile")
-            )
-        elif action == "suggest_calorie_goal":
-            profile_data = kwargs.get("profile_data", {})
-            return await suggest_calorie_goal(
-                weight_kg=profile_data.get("weight_kg"),
-                height_cm=profile_data.get("height_cm"),
-                age=profile_data.get("age"),
-                activity_level=profile_data.get("activity_level")
-            )
-        elif action == "create_profile":
-            return await self._create_user_profile(kwargs.get("profile_data", {}))
-        else:
-            return {"error": f"Unknown action: {action}"}
-
-    async def _create_user_profile(self, profile_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create user profile in database."""
-        try:
-            with get_db_session() as session:
-                # Check if profile already exists
-                existing = session.query(UserProfile).filter_by(
-                    user_id=profile_data["user_id"]
-                ).first()
-
-                if existing:
-                    # Update existing profile
-                    for key, value in profile_data.items():
-                        if hasattr(existing, key):
-                            setattr(existing, key, value)
-                    existing.updated_at = datetime.utcnow()
-                    session.commit()
-                    return {"status": "updated", "user_id": profile_data["user_id"]}
-                else:
-                    # Create new profile
-                    profile = UserProfile(**profile_data)
-                    session.add(profile)
-                    session.commit()
-                    return {"status": "created", "user_id": profile_data["user_id"]}
-
-        except Exception as e:
-            logger.error(f"Profile creation failed: {e}")
-            return {"error": str(e)}
-
-
-class OnboardingAgent(BaseAgent):
+class OnboardingAgent:
     """
     Agent responsible for user onboarding and profile setup.
 
@@ -93,13 +34,6 @@ class OnboardingAgent(BaseAgent):
     """
 
     def __init__(self):
-        tools = [OnboardingTool()]
-        super().__init__(
-            name="onboarding_agent",
-            description="Handle user onboarding and profile creation",
-            tools=tools
-        )
-
         # Onboarding conversation states
         self.states = {
             "greeting": self._handle_greeting,
@@ -142,6 +76,84 @@ class OnboardingAgent(BaseAgent):
                 completed=False
             )
 
+    async def _set_onboarding_state(self, user_id: str, state: str, profile_data: Optional[Dict[str, Any]] = None) -> None:
+        """Update onboarding state and profile data."""
+        session_data = await self._get_session_data(user_id) or {}
+        session_data["onboarding_state"] = state
+
+        if profile_data:
+            session_data["profile_data"] = profile_data
+
+        await self._update_session_data(user_id, session_data)
+
+    async def _get_session_data(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get current session data for user."""
+        try:
+            with get_db_session() as session:
+                session_state = session.query(SessionState).filter_by(user_id=user_id).first()
+                if session_state and session_state.expires_at > datetime.utcnow():
+                    data = {
+                        "onboarding_state": "greeting",  # default
+                        "profile_data": {}
+                    }
+                    if session_state.batch_items:
+                        items = json.loads(session_state.batch_items)
+                        data.update(items)
+                    return data
+        except Exception as e:
+            logger.error(f"Failed to get session data: {e}")
+        return None
+
+    async def _update_session_data(self, user_id: str, session_data: Dict[str, Any]) -> None:
+        """Update session data for user."""
+        try:
+            with get_db_session() as session:
+                # Remove existing session
+                session.query(SessionState).filter_by(user_id=user_id).delete()
+
+                # Create new session if data provided
+                if session_data:
+                    expires_at = datetime.utcnow() + timedelta(hours=24)  # 24 hours for onboarding
+                    session_state = SessionState(
+                        batch_id=f"{user_id}_onboarding_{datetime.utcnow().timestamp()}",
+                        user_id=user_id,
+                        batch_type="onboarding",  # Always 'onboarding' for onboarding sessions
+                        batch_items=json.dumps(session_data),  # Store all session data as JSON
+                        expires_at=expires_at
+                    )
+                    session.add(session_state)
+                session.commit()
+        except Exception as e:
+            logger.error(f"Failed to update session data: {e}")
+
+    async def _create_user_profile(self, profile_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create user profile in database."""
+        try:
+            with get_db_session() as session:
+                # Check if profile already exists
+                existing = session.query(UserProfile).filter_by(
+                    user_id=profile_data["user_id"]
+                ).first()
+
+                if existing:
+                    # Update existing profile
+                    for key, value in profile_data.items():
+                        if hasattr(existing, key):
+                            setattr(existing, key, value)
+                    existing.updated_at = datetime.utcnow()
+                    session.commit()
+                    return {"status": "updated", "user_id": profile_data["user_id"]}
+                else:
+                    # Create new profile
+                    profile = UserProfile(**profile_data)
+                    session.add(profile)
+                    session.commit()
+                    return {"status": "created", "user_id": profile_data["user_id"]}
+
+        except Exception as e:
+            logger.error(f"Profile creation failed: {e}")
+            return {"error": str(e)}
+
     async def _get_onboarding_state(self, user_id: str) -> str:
         """Get current onboarding state for user."""
         # Check if user already has a complete profile
@@ -157,16 +169,6 @@ class OnboardingAgent(BaseAgent):
 
         # Default to greeting for new users
         return "greeting"
-
-    async def _set_onboarding_state(self, user_id: str, state: str, profile_data: Optional[Dict[str, Any]] = None) -> None:
-        """Update onboarding state and profile data."""
-        session_data = await self._get_session_data(user_id) or {}
-        session_data["onboarding_state"] = state
-
-        if profile_data:
-            session_data["profile_data"] = profile_data
-
-        await self._update_session_data(user_id, session_data)
 
     async def _handle_greeting(self, user_id: str, message: str, context: Optional[Dict[str, Any]] = None) -> AgentResponse:
         """Handle initial greeting and start onboarding."""
@@ -421,16 +423,15 @@ class OnboardingAgent(BaseAgent):
         if message_lower in ['yes', 'correct', 'save', 'ok', 'y']:
             # Get profile data and create profile
             session_data = await self._get_session_data(user_id)
-            profile_data = session_data.get("profile_data", {})
+            profile_data = session_data.get("profile_data", {}) if session_data else {}
 
             # Add timezone (default to UTC, can be updated later)
             profile_data["timezone"] = "UTC"
 
-            # Create profile using tool
-            tool = self._get_tool_by_name("onboarding_assistance")
-            result = await tool.execute_with_timeout(action="create_profile", profile_data=profile_data)
+            # Create profile
+            result = await self._create_user_profile(profile_data)
 
-            if result.success and result.data.get("status") in ["created", "updated"]:
+            if result.get("status") in ["created", "updated"]:
                 # Mark onboarding as complete
                 await self._set_onboarding_state(user_id, "complete")
 

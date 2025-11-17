@@ -307,68 +307,6 @@ def setup_logging(
         file_handler.addFilter(sensitive_filter)
         root_logger.addHandler(file_handler)
 
-def setup_logging(
-    log_level: str = None,
-    log_file: str = None,
-    json_format: bool = True,
-    enable_console: bool = True
-) -> None:
-    """
-    Configure logging for the application.
-
-    Args:
-        log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        log_file: Path to log file
-        json_format: Whether to use JSON formatting
-        enable_console: Whether to enable console logging
-    """
-    # Use settings defaults
-    log_level = log_level or settings.log_level
-    log_file = log_file or str(settings.log_path)
-
-    # Convert log level string to numeric
-    numeric_level = getattr(logging, log_level.upper(), logging.INFO)
-
-    # Clear existing handlers
-    root_logger = logging.getLogger()
-    root_logger.handlers.clear()
-    root_logger.setLevel(numeric_level)
-
-    # Create formatters
-    if json_format:
-        formatter = JSONFormatter()
-    else:
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
-
-    # Add sensitive data filter
-    sensitive_filter = SensitiveDataFilter()
-
-    # Console handler
-    if enable_console:
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setLevel(numeric_level)
-        console_handler.setFormatter(formatter)
-        console_handler.addFilter(sensitive_filter)
-        root_logger.addHandler(console_handler)
-
-    # File handler with rotation
-    if log_file:
-        # Ensure log directory exists
-        log_path = Path(log_file)
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-
-        file_handler = logging.handlers.RotatingFileHandler(
-            log_file,
-            maxBytes=10*1024*1024,  # 10MB
-            backupCount=5
-        )
-        file_handler.setLevel(numeric_level)
-        file_handler.setFormatter(formatter)
-        file_handler.addFilter(sensitive_filter)
-        root_logger.addHandler(file_handler)
-
     # Set specific log levels for noisy libraries
     logging.getLogger('urllib3').setLevel(logging.WARNING)
     logging.getLogger('telegram').setLevel(logging.WARNING)
@@ -514,5 +452,18 @@ setup_logging()
 # Export key classes and functions
 __all__ = [
     'SensitiveDataFilter', 'JSONFormatter', 'ErrorHandler',
-    'setup_logging', 'error_context', 'log_performance', 'HealthChecker'
+    'setup_logging', 'error_context', 'log_performance', 'HealthChecker', 'get_logger'
 ]
+
+
+def get_logger(name: str) -> logging.Logger:
+    """
+    Get a logger instance with the specified name.
+
+    Args:
+        name: Logger name (usually __name__)
+
+    Returns:
+        Configured logger instance
+    """
+    return logging.getLogger(name)

@@ -1,7 +1,7 @@
 """
 Base agent framework for Weight Loss Chat Agent.
 
-This module provides the foundational agent classes and utilities using Google ADK.
+This module provides the foundational agent classes and utilities.
 It implements the multi-agent architecture with base agent functionality,
 tool calling, session management, and error handling.
 
@@ -20,9 +20,6 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, Callable, Union
 from datetime import datetime, timedelta
 from dataclasses import dataclass
-
-from google import genai  # Google ADK
-from google.adk import agents, sessions  # Google ADK agents framework
 
 from config.settings import settings
 from database.init import get_db_session
@@ -98,10 +95,9 @@ class BaseTool(ABC):
 
 class BaseAgent(ABC):
     """
-    Abstract base agent class using Google ADK.
+    Abstract base agent class.
 
     Provides common functionality for all agents:
-    - ADK integration and model management
     - Tool calling infrastructure
     - Session state management
     - Error handling and logging
@@ -109,45 +105,19 @@ class BaseAgent(ABC):
     """
 
     def __init__(self, name: str, description: str, tools: Optional[List[BaseTool]] = None):
+        """
+        Initialize agent.
+
+        Args:
+            name: Agent name
+            description: Agent description
+            tools: List of tools this agent can use
+        """
         self.name = name
         self.description = description
         self.tools = tools or []
 
-        # Initialize Google ADK client
-        self.client = genai.Client(api_key=settings.google_genai_api_key)
-
-        # Create ADK agent
-        self.adk_agent = self._create_adk_agent()
-
         logger.info(f"Initialized agent: {name}")
-
-    def _create_adk_agent(self) -> agents.Agent:
-        """Create Google ADK agent instance."""
-        # Convert tools to ADK format
-        adk_tools = []
-        for tool in self.tools:
-            adk_tools.append(self._convert_tool_to_adk(tool))
-
-        return agents.Agent(
-            name=self.name,
-            description=self.description,
-            model=settings.gemini_model,
-            tools=adk_tools,
-            temperature=settings.gemini_temperature,
-            max_tokens=settings.gemini_max_tokens
-        )
-
-    def _convert_tool_to_adk(self, tool: BaseTool) -> Dict[str, Any]:
-        """Convert BaseTool to ADK tool format."""
-        return {
-            "name": tool.name,
-            "description": tool.description,
-            "parameters": {
-                "type": "object",
-                "properties": {},  # Tool-specific parameters would be defined here
-                "required": []
-            }
-        }
 
     @abstractmethod
     async def process_message(self, user_id: str, message: str, context: Optional[Dict[str, Any]] = None) -> AgentResponse:
@@ -164,113 +134,20 @@ class BaseAgent(ABC):
         """
         pass
 
-    async def _call_adk_agent(self, user_id: str, message: str, session_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """
-        Call Google ADK agent with message and context.
-
-        Args:
-            user_id: User identifier
-            message: User message
-            session_data: Session context
-
-        Returns:
-            Dict containing agent response and tool calls
-        """
-        try:
-            # Track API usage
-            await self._track_api_usage("gemini", "chat_completion")
-
-            # Prepare context
-            context = self._prepare_context(user_id, session_data)
-
-            # Create session if needed
-            session = sessions.Session(
-                agent=self.adk_agent,
-                user_id=user_id,
-                context=context
-            )
-
-            # Get response from ADK
-            response = await session.send_message_async(message)
-
-            return {
-                "response": response.text,
-                "tool_calls": getattr(response, 'tool_calls', []),
-                "metadata": getattr(response, 'metadata', {})
-            }
-
-        except Exception as e:
-            logger.error(f"ADK agent call failed: {e}")
-            return {
-                "response": "I apologize, but I'm having trouble processing your request right now.",
-                "tool_calls": [],
-                "error": str(e)
-            }
-
-    def _prepare_context(self, user_id: str, session_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Prepare context for ADK agent call."""
-        context = {
-            "user_id": user_id,
-            "timestamp": datetime.utcnow().isoformat(),
-            "agent_name": self.name,
-            "max_batch_items": settings.max_batch_items,
-            "memory_window_days": settings.memory_window_days
-        }
-
-        if session_data:
-            context.update(session_data)
-
-        return context
-
-    async def _execute_tool_calls(self, tool_calls: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Execute tool calls from ADK response."""
-        results = {}
-
-        for tool_call in tool_calls:
-            tool_name = tool_call.get("name")
-            tool_args = tool_call.get("arguments", {})
-
-            # Find and execute tool
-            tool = self._get_tool_by_name(tool_name)
-            if tool:
-                result = await tool.execute_with_timeout(**tool_args)
-                results[tool_name] = {
-                    "success": result.success,
-                    "data": result.data,
-                    "error": result.error,
-                    "confidence": result.confidence
-                }
-            else:
-                results[tool_name] = {
-                    "success": False,
-                    "error": f"Tool '{tool_name}' not found"
-                }
-
-        return results
-
-    def _get_tool_by_name(self, name: str) -> Optional[BaseTool]:
-        """Get tool instance by name."""
-        for tool in self.tools:
-            if tool.name == name:
-                return tool
-        return None
-
-    async def _track_api_usage(self, provider: str, endpoint: str, request_count: int = 1, cost_usd: float = 0.0) -> None:
-        """Track API usage for monitoring and cost control."""
+    async def _get_session_data(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get current session data for user."""
         try:
             with get_db_session() as session:
-                usage = ApiUsage(
-                    provider=provider,
-                    endpoint=endpoint,
-                    request_count=request_count,
-                    cost_usd=cost_usd
-                )
-                session.add(usage)
-                session.commit()
+                session_state = session.query(SessionState).filter_by(user_id=user_id).first()
+                if session_state and session_state.expires_at > datetime.utcnow():
+                    return {
+                        "batch_type": session_state.batch_type,
+                        "batch_items": session_state.batch_items_list,
+                        "expires_at": session_state.expires_at.isoformat()
+                    }
         except Exception as e:
-            logger.warning(f"Failed to track API usage: {e}")
-
-    async def _get_session_data(self, user_id: str) -> Optional[Dict[str, Any]]:
+            logger.error(f"Failed to get session data: {e}")
+        return None
         """Get current session data for user."""
         try:
             with get_db_session() as session:

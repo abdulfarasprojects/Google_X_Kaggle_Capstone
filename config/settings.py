@@ -18,8 +18,8 @@ import secrets
 from typing import Optional, List
 from pathlib import Path
 
-from pydantic import BaseSettings, Field, validator
-from pydantic.env_settings import SettingsSourceCallable
+from pydantic import Field, validator
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -51,7 +51,7 @@ class Settings(BaseSettings):
 
     # Gemini API Configuration
     google_genai_api_key: str = Field(..., env="GOOGLE_GENAI_API_KEY")
-    gemini_model: str = Field(default="gemini-2.0-flash-exp", env="GEMINI_MODEL")
+    gemini_model: str = Field(default="gemini-2.5-flash-lite", env="GEMINI_MODEL")
     gemini_temperature: float = Field(default=0.7, env="GEMINI_TEMPERATURE")
     gemini_max_tokens: int = Field(default=2048, env="GEMINI_MAX_TOKENS")
 
@@ -89,25 +89,12 @@ class Settings(BaseSettings):
     log_file_path: str = Field(default="logs/bot.log", env="LOG_FILE_PATH")
     database_file_path: str = Field(default="weight_loss_app.db", env="DATABASE_FILE_PATH")
 
-    class Config:
-        """Pydantic configuration for environment variable loading."""
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
-
-        @classmethod
-        def customise_sources(
-            cls,
-            init_settings: SettingsSourceCallable,
-            env_settings: SettingsSourceCallable,
-            file_secret_settings: SettingsSourceCallable,
-        ) -> tuple[SettingsSourceCallable, ...]:
-            """Customize settings sources to prioritize env vars over file."""
-            return (
-                init_settings,
-                env_settings,
-                file_secret_settings,
-            )
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "case_sensitive": False,
+        "extra": "ignore",  # Allow extra environment variables
+    }
 
     @validator('telegram_bot_token')
     def validate_telegram_token(cls, v):
