@@ -1,4 +1,4 @@
-# Weight Loss Chat Agent 🤖
+# Weight Loss Tracker & Coach Chat Agent 🤖
 
 A conversational AI-powered Telegram bot that helps users track their weight loss journey through nutrition, fitness, and wellness logging with autonomous nudges and personalized recommendations.
 
