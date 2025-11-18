@@ -1,7 +1,10 @@
 """
 ADK Integration Layer for Weight Loss Chat Agent.
 
-This module provides the integration layer between the Telegram bot and
+This module provides the integration layer between the Teleg            for event in events:
+                logger.debug(f"🔍 Processing event: {event}")
+
+                if hasattr(event, 'content') and event.content and event.content.parts:t and
 Google ADK agents. It uses the ADK Runner framework to properly execute
 agents and handle their responses.
 
@@ -115,11 +118,13 @@ class ADKAgentRunner:
 
             for event in events:
                 logger.debug(f"🔍 Processing event: {event}")
+                logger.debug(f"Event type: {type(event)}")
+                logger.debug(f"Event attributes: {dir(event)}")
 
-                if hasattr(event, 'content') and event.content:
+                if hasattr(event, 'content') and event.content and event.content.parts:
                     # Extract text from content
                     for part in event.content.parts:
-                        if hasattr(part, 'text'):
+                        if hasattr(part, 'text') and part.text is not None:
                             response_text += part.text
                             logger.info(f"💬 Extracted text from event: {part.text[:100]}...")
 
