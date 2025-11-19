@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from tools.base import BaseTool, ToolResult
 from config.settings import settings
 
+from tools.nutrition.reference_data import nutrition_reference
+
 logger = logging.getLogger(__name__)
 
 
@@ -194,6 +196,21 @@ class MealNutritionCalculatorTool(BaseTool):
 
             if not search_result or not search_result.success:
                 logger.warning(f"Web search failed for: {food_description}")
+                # Try reference data as fallback
+                reference_result = nutrition_reference.calculate_nutrition_from_reference(
+                    food_description, quantity, unit
+                )
+                if reference_result:
+                    logger.info(f"Using reference data for: {food_description}")
+                    return NutritionItem(
+                        food_name=reference_result['food_name'],
+                        calories=reference_result['calories'],
+                        protein_g=reference_result['protein_g'],
+                        carbs_g=reference_result['carbs_g'],
+                        fat_g=reference_result['fat_g'],
+                        confidence=reference_result['confidence'] * parse_confidence,
+                        source="reference_db"
+                    )
                 return None
 
             # Parse search results to extract nutrition data
@@ -201,6 +218,21 @@ class MealNutritionCalculatorTool(BaseTool):
             
             if not nutrition_data:
                 logger.warning(f"Could not parse nutrition data for: {food_description}")
+                # Try reference data as fallback
+                reference_result = nutrition_reference.calculate_nutrition_from_reference(
+                    food_description, quantity, unit
+                )
+                if reference_result:
+                    logger.info(f"Using reference data for: {food_description}")
+                    return NutritionItem(
+                        food_name=reference_result['food_name'],
+                        calories=reference_result['calories'],
+                        protein_g=reference_result['protein_g'],
+                        carbs_g=reference_result['carbs_g'],
+                        fat_g=reference_result['fat_g'],
+                        confidence=reference_result['confidence'] * parse_confidence,
+                        source="reference_db"
+                    )
                 return None
 
             base_calories = nutrition_data.get('calories_per_serving', 0)
