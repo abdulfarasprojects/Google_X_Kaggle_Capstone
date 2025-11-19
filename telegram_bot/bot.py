@@ -29,6 +29,7 @@ from config.settings import settings
 from database.init import get_db_session
 from database.models import SessionState, UserProfile, MealLog, WorkoutLog, WellnessLog
 
+from agents.onboarding_agent import onboarding_agent
 from adk_integration import process_agent_message, initialize_agent_runner, shutdown_agent_runner
 
 logger = logging.getLogger(__name__)
@@ -186,53 +187,26 @@ class TelegramBot:
                     )
                     await update.message.reply_text(message)
                 else:
-                    # New user - route to onboarding agent
-                    if self.agent_router:
-                        logger.info("Routing new user to onboarding agent")
-                        try:
-                            # Set typing indicator
-                            await update.message.chat.send_action("typing")
+                    # New user - use onboarding agent directly
+                    logger.info("Starting onboarding for new user")
+                    try:
+                        # Set typing indicator
+                        await update.message.chat.send_action("typing")
 
-                            # Process with timeout
-                            response = await asyncio.wait_for(
-                                self.agent_router(user_id, "/start", context),
-                                timeout=settings.bot_response_timeout
-                            )
+                        # Process with onboarding agent
+                        response = await onboarding_agent.process_message(user_id, "/start", context)
 
-                            # Send response
-                            if isinstance(response, dict) and 'text' in response:
-                                reply_text = response['text']
-                                reply_markup = response.get('keyboard')
+                        # Send response
+                        reply_text = response.text
+                        await update.message.reply_text(reply_text)
 
-                                if reply_markup:
-                                    await update.message.reply_text(reply_text, reply_markup=reply_markup)
-                                else:
-                                    await update.message.reply_text(reply_text)
-                            else:
-                                await update.message.reply_text(str(response))
+                        logger.info("✅ Onboarding start response sent successfully")
 
-                            logger.info("✅ Onboarding start response sent successfully")
-
-                        except asyncio.TimeoutError:
-                            logger.warning("Onboarding start timeout")
-                            await update.message.reply_text(
-                                "⏰ I'm taking too long to respond. Please try again."
-                            )
-                        except Exception as e:
-                            logger.error(f"Error starting onboarding: {e}", exc_info=True)
-                            await update.message.reply_text(
-                                "❌ Sorry, I encountered an error. Please try again."
-                            )
-                    else:
-                        # Fallback if no agent router
-                        message = (
-                            f"Hello {user.first_name}! 👋 Welcome to your personal weight loss assistant!\n\n"
-                            "I'm here to help you track your nutrition, fitness, and wellness "
-                            "to achieve your weight loss goals.\n\n"
-                            "To get started, I need to know a bit about you. "
-                            "What's your age?"
+                    except Exception as e:
+                        logger.error(f"Error starting onboarding: {e}", exc_info=True)
+                        await update.message.reply_text(
+                            "❌ Sorry, I encountered an error. Please try again."
                         )
-                        await update.message.reply_text(message)
 
         except Exception as e:
             logger.error(f"❌ Error in /start handler: {e}", exc_info=True)
@@ -381,50 +355,77 @@ class TelegramBot:
 
         logger.info(f"Message from user {user_id}: {text[:100]}...")
 
-        # Route to agent framework
-        if self.agent_router:
-            logger.info("Routing to agent framework")
+        # Check if user has completed profile
+        with get_db_session() as session:
+            profile = session.query(UserProfile).filter_by(user_id=user_id).first()
+            is_onboarding = profile is None
+
+        if is_onboarding:
+            # User is in onboarding - use onboarding agent
+            logger.info("User in onboarding - routing to onboarding agent")
             try:
                 # Set typing indicator
                 await update.message.chat.send_action("typing")
 
-                # Process with timeout
-                response = await asyncio.wait_for(
-                    self.agent_router(user_id, text, context),
-                    timeout=settings.bot_response_timeout
-                )
+                # Process with onboarding agent
+                response = await onboarding_agent.process_message(user_id, text, context)
 
                 # Send response
-                if isinstance(response, dict) and 'text' in response:
-                    reply_text = response['text']
-                    reply_markup = response.get('keyboard')
+                reply_text = response.text
+                await message.reply_text(reply_text)
 
-                    if reply_markup:
-                        await message.reply_text(reply_text, reply_markup=reply_markup)
-                    else:
-                        await message.reply_text(reply_text)
-                else:
-                    await message.reply_text(str(response))
+                logger.info("✅ Onboarding message response sent successfully")
 
-                logger.info("✅ Agent response sent successfully")
-
-            except asyncio.TimeoutError:
-                logger.warning("Agent response timeout")
-                await message.reply_text(
-                    "⏰ I'm taking too long to respond. Please try again."
-                )
             except Exception as e:
-                logger.error(f"Error processing message: {e}", exc_info=True)
+                logger.error(f"Error processing onboarding message: {e}", exc_info=True)
                 await message.reply_text(
                     "❌ Sorry, I encountered an error. Please try again."
                 )
         else:
-            logger.info("No agent router available, using fallback")
-            # Fallback response
-            await message.reply_text(
-                "🤖 I'm still learning! Please use /help to see what I can do."
-            )
-            logger.info("✅ Fallback response sent")
+            # User has profile - route to agent framework
+            if self.agent_router:
+                logger.info("Routing to agent framework")
+                try:
+                    # Set typing indicator
+                    await update.message.chat.send_action("typing")
+
+                    # Process with timeout
+                    response = await asyncio.wait_for(
+                        self.agent_router(user_id, text, context),
+                        timeout=settings.bot_response_timeout
+                    )
+
+                    # Send response
+                    if isinstance(response, dict) and 'text' in response:
+                        reply_text = response['text']
+                        reply_markup = response.get('keyboard')
+
+                        if reply_markup:
+                            await message.reply_text(reply_text, reply_markup=reply_markup)
+                        else:
+                            await message.reply_text(reply_text)
+                    else:
+                        await message.reply_text(str(response))
+
+                    logger.info("✅ Agent response sent successfully")
+
+                except asyncio.TimeoutError:
+                    logger.warning("Agent response timeout")
+                    await message.reply_text(
+                        "⏰ I'm taking too long to respond. Please try again."
+                    )
+                except Exception as e:
+                    logger.error(f"Error processing message: {e}", exc_info=True)
+                    await message.reply_text(
+                        "❌ Sorry, I encountered an error. Please try again."
+                    )
+            else:
+                logger.info("No agent router available, using fallback")
+                # Fallback response
+                await message.reply_text(
+                    "🤖 I'm still learning! Please use /help to see what I can do."
+                )
+                logger.info("✅ Fallback response sent")
 
     async def _handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle callback queries from inline keyboards."""

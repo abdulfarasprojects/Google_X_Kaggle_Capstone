@@ -62,11 +62,12 @@ class WorkoutManager:
                 workout_log = WorkoutLog(
                     log_id=log_id,
                     user_id=user_id,
-                    exercises=exercises,
                     total_volume=total_volume,
                     progression_suggestion=progression_suggestion,
                     log_date=workout_date
                 )
+                # Set exercises using the property setter which handles JSON conversion
+                workout_log.exercises_list = exercises
 
                 session.add(workout_log)
                 session.commit()
