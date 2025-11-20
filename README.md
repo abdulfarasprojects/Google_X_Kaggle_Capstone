@@ -30,22 +30,561 @@ This Telegram bot is a friendly, privacy-first AI weight loss companion designed
 - **Advanced Tool Integration**: Custom and built-in tools for nutrition analysis, fitness tracking, and wellness correlations
 - **Session Management**: Persistent conversation state with intelligent context handling
 - **Comprehensive Observability**: Structured logging, error handling, and performance monitoring
+- **Google ADK Integration**: Full agent development kit implementation with lazy loading and error handling
+- **Database Layer**: Complete SQLite persistence with SQLAlchemy ORM and data managers
+- **Telegram Bot Integration**: Production-ready bot with webhook support and graceful degradation
 
 ### 🚧 In Development
-- **Nutrition Tracking**: Log meals with USDA API integration and calorie calculations
-- **Fitness Logging**: Track workouts with volume calculations and progression suggestions
-- **Wellness Monitoring**: Sleep, water intake, and step counting with correlations
+- **Nutrition Tracking**: Enhanced meal logging with improved USDA API integration and batch processing
+- **Fitness Logging**: Advanced workout tracking with volume calculations and progression suggestions
+- **Wellness Monitoring**: Comprehensive sleep, water intake, and step counting with correlations
 - **Autonomous Nudges**: Scheduled reminders to maintain consistent habits
-- **Progress Analytics**: Daily/weekly summaries with trends and insights
+- **Progress Analytics**: Enhanced daily/weekly summaries with trends and insights
 - **Production Features**: Docker deployment, health checks, and monitoring
 
 ## 🏗️ Architecture & Implementation
 
-### Multi-Agent System
+### Overall System Architecture
 
-The bot implements a sophisticated **multi-agent architecture** using **Google ADK (Agent Development Kit)** with a hierarchical agent structure:
+```mermaid
+graph TB
+    subgraph "Entry Layer"
+        A[Telegram Bot<br/>bot.py<br/>Primary Interface]
+    end
+    
+    subgraph "Routing Layer"
+        B{User Profile<br/>Exists?}
+        D[Agent Router<br/>adk_integration.py<br/>ADKAgentRunner]
+    end
+    
+    subgraph "Onboarding Flow"
+        C[Onboarding Agent<br/>onboarding_agent.py<br/>BaseAgent]
+        U[Profile Manager<br/>profile_manager.py]
+    end
+    
+    subgraph "ADK Framework"
+        E[ADK Runner<br/>InMemoryRunner<br/>Session Management]
+        F[Root Agent<br/>agent.py<br/>LlmAgent + Tools<br/>🎯 Orchestrates Everything]
+    end
+    
+    subgraph "Core Analysis Tools"
+        G[Intent Classifier<br/>intent_classifier.py]
+        H[Sentiment Detector<br/>sentiment_detector.py]
+        I[Response Formatter<br/>response_formatter.py]
+        X[Batch State Manager<br/>batch_state_manager.py]
+    end
+    
+    subgraph "Domain-Specific Tools"
+        J[Nutrition Tools<br/>batch_parser.py<br/>calculator.py<br/>meal_storage.py]
+        K[Fitness Tools<br/>batch_parser.py<br/>calculator.py<br/>workout_storage.py<br/>progress.py]
+        L[Wellness Tools<br/>wellness_logger.py]
+        M[Analytics Tools<br/>calculator.py<br/>reporter.py]
+        N[Nudge Tools<br/>scheduler.py]
+    end
+    
+    subgraph "Database Layer"
+        O[Meal Manager<br/>meal_manager.py]
+        P[Workout Manager<br/>workout_manager.py]
+        Q[Wellness Manager<br/>wellness_manager.py]
+        R[Analytics Manager<br/>analytics_manager.py]
+        S[Nudge Manager<br/>nudge_manager.py]
+    end
+    
+    subgraph "Unused Sub-Agents"
+        V[Sub-Agents<br/>nutrition/agent.py<br/>fitness/agent.py<br/>wellness/agent.py<br/>analytics/agent.py<br/>nudge/agent.py<br/>❌ Not Called by Root]
+    end
+    
+    subgraph "Data Persistence"
+        T[(SQLite Database<br/>weight_loss_app.db<br/>━━━━━━━━━━━━━<br/>UserProfile<br/>MealLog<br/>WorkoutLog<br/>WellnessLog<br/>NudgeEvent<br/>ProgressSummary<br/>SessionState<br/>ApiUsage)]
+    end
+    
+    A --> B
+    B -->|No Profile| C
+    B -->|Has Profile| D
+    
+    D --> E
+    E --> F
+    
+    C --> U
+    U --> T
+    
+    F --> G
+    F --> H
+    F --> I
+    F --> X
+    
+    F --> J
+    F --> K
+    F --> L
+    F --> M
+    F --> N
+    
+    J --> O
+    K --> P
+    L --> Q
+    M --> R
+    N --> S
+    
+    O --> T
+    P --> T
+    Q --> T
+    R --> T
+    S --> T
+    
+    X --> T
+    
+    V -.->|Defined But<br/>Not Used| F
+    
+    style F fill:#ff9999,stroke:#ff0000,stroke-width:3px
+    style V fill:#cccccc,stroke:#999999,stroke-width:2px,stroke-dasharray: 5 5
+    style T fill:#99ccff,stroke:#0066cc,stroke-width:3px
+    style A fill:#99ff99,stroke:#00cc00,stroke-width:2px
+```
 
-#### **Root Agent (Orchestrator)**
+### Agent Interaction Patterns
+
+```mermaid
+graph TD
+    %% Root Agent as Central Coordinator
+    subgraph "Root Agent (Coordinator)"
+        ROOT[🎯 Root Agent<br/>agents/root/agent.py<br/>LlmAgent + Coordinator<br/>Intent: General/Support]
+
+        subgraph "Root Agent Tools"
+            INTENT[🎯 Intent Classifier<br/>Classify user message intent]
+            SENT[😊 Sentiment Detector<br/>Analyze emotional state]
+            FMT[📝 Response Formatter<br/>Format Telegram responses]
+            BATCH[📦 Batch State Manager<br/>Handle multi-item conversations]
+        end
+    end
+
+    %% Specialized Agents
+    subgraph "Specialized Agents"
+        NUTR[🍽️ Nutrition Agent<br/>agents/nutrition/agent.py<br/>Meal logging & nutrition analysis]
+        FIT[💪 Fitness Agent<br/>agents/fitness/agent.py<br/>Workout tracking & progression]
+        WELL[😴 Wellness Agent<br/>agents/wellness/agent.py<br/>Sleep, water, steps tracking]
+        ANAL[📊 Analytics Agent<br/>agents/analytics/agent.py<br/>Progress reports & trends]
+        NUDGE[🔔 Nudge Agent<br/>agents/nudge/agent.py<br/>Reminders & habit building]
+    end
+
+    %% ADK Integration Layer
+    ADK[🔄 ADK Agent Runner<br/>adk_integration.py<br/>Routes messages to appropriate agents]
+
+    %% Session Management
+    SESS[💾 Session Service<br/>InMemorySessionService<br/>Maintains conversation context]
+
+    %% Interaction Patterns
+    subgraph "Agent Interaction Patterns"
+        SEQ[🔄 Sequential Processing<br/>Root → Sub-Agent → Response]
+        TOOL[🛠️ Tool Execution<br/>Agent → Tool → Database]
+        STATE[💾 State Preservation<br/>Context maintained across agents]
+        ROLE[🎭 Role Separation<br/>Each agent handles one domain]
+        HANDOVER[🤝 Context Handover<br/>State transfer between agents]
+    end
+
+    %% Message Flow Examples
+    subgraph "Message Routing Examples"
+        MSG1["💬 'I ate 2 eggs and toast'"]
+        MSG2["💬 'Did 3 sets of squats'"]
+        MSG3["💬 'Slept 7 hours last night'"]
+        MSG4["💬 'Show me my progress'"]
+        MSG5["💬 'Hello, how are you doing?'"]
+    end
+
+    %% Agent Communication Flow
+    ADK -->|"Classify Intent"| ROOT
+    ROOT -->|"Nutrition Intent"| NUTR
+    ROOT -->|"Fitness Intent"| FIT
+    ROOT -->|"Wellness Intent"| WELL
+    ROOT -->|"Analytics Intent"| ANAL
+    ROOT -->|"General Intent"| ROOT
+
+    %% Tool Usage by Root Agent
+    ROOT -->|"Use Tool"| INTENT
+    ROOT -->|"Use Tool"| SENT
+    ROOT -->|"Use Tool"| FMT
+    ROOT -->|"Use Tool"| BATCH
+
+    %% Session Management
+    ADK -->|"Access Context"| SESS
+    ROOT -->|"Access Context"| SESS
+    NUTR -->|"Access Context"| SESS
+    FIT -->|"Access Context"| SESS
+    WELL -->|"Access Context"| SESS
+    ANAL -->|"Access Context"| SESS
+    NUDGE -->|"Access Context"| SESS
+
+    %% Response Flow Back to Root
+    NUTR -->|"Nutrition Response"| ROOT
+    FIT -->|"Fitness Response"| ROOT
+    WELL -->|"Wellness Response"| ROOT
+    ANAL -->|"Analytics Response"| ROOT
+    NUDGE -->|"Nudge Response"| ROOT
+
+    %% Message Routing Examples
+    MSG1 -->|"Classified as NUTRITION"| ADK
+    MSG2 -->|"Classified as FITNESS"| ADK
+    MSG3 -->|"Classified as WELLNESS"| ADK
+    MSG4 -->|"Classified as ANALYTICS"| ADK
+    MSG5 -->|"Classified as GENERAL"| ADK
+
+    ADK -->|"Route"| ROOT
+    ROOT -->|"Delegate"| NUTR
+    ROOT -->|"Delegate"| FIT
+    ROOT -->|"Delegate"| WELL
+    ROOT -->|"Delegate"| ANAL
+
+    %% Pattern Explanations
+    SEQ -.->|"Root receives, routes to sub-agent, gets response"| ROOT
+    TOOL -.->|"Agents use specialized tools for domain tasks"| NUTR
+    STATE -.->|"Conversation context preserved across agent switches"| SESS
+    ROLE -.->|"Each agent has single responsibility"| NUTR
+    HANDOVER -.->|"State transferred when switching agents"| ADK
+
+    %% Styling
+    style ROOT fill:#ffecb3,stroke:#ff6f00,stroke-width:3px
+    style ADK fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style SESS fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+
+    %% Subgraph styling
+    classDef agentClass fill:#fff9c4,stroke:#f57c00,stroke-width:2px
+    classDef toolClass fill:#f3e5f5,stroke:#7b1fa2,stroke-width:1px
+    classDef patternClass fill:#e3f2fd,stroke:#1976d2,stroke-width:1px
+    classDef messageClass fill:#fff3e0,stroke:#ef6c00,stroke-width:1px
+
+    class NUTR,FIT,WELL,ANAL,NUDGE agentClass
+    class INTENT,SENT,FMT,BATCH toolClass
+    class SEQ,TOOL,STATE,ROLE,HANDOVER patternClass
+    class MSG1,MSG2,MSG3,MSG4,MSG5 messageClass
+```
+
+### Agent Tools & Capabilities
+
+```mermaid
+graph TD
+    %% Agents and their tools
+    subgraph "Root Agent Tools"
+        ROOT[🎯 Root Agent<br/>Coordinator]
+
+        subgraph "Core Tools (Available to All Agents)"
+            INTENT[🎯 Intent Classifier<br/>tools/intent_classifier.py<br/>Gemini-powered intent detection<br/>Classifies: nutrition, fitness, wellness, analytics]
+            SENT[😊 Sentiment Detector<br/>tools/sentiment_detector.py<br/>Emotional state analysis<br/>Detects: happy, frustrated, motivated, etc.]
+            FMT[📝 Response Formatter<br/>tools/response_formatter.py<br/>Structured response generation<br/>Formats for Telegram with emojis & formatting]
+            BATCH[📦 Batch State Manager<br/>tools/batch_state_manager.py<br/>Multi-item conversation handling<br/>Manages: meal batches, workout sets, etc.]
+        end
+    end
+
+    subgraph "Nutrition Agent Tools"
+        NUTR[🍽️ Nutrition Agent<br/>Meal Processing]
+
+        subgraph "Nutrition-Specific Tools"
+            N_PARSER[🍽️ Batch Parser<br/>tools/nutrition/batch_parser.py<br/>Food item extraction from text<br/>Parses: "2 eggs, toast, coffee"]
+            N_CALC[🧮 Calculator<br/>tools/nutrition/calculator.py<br/>Nutrition calculation<br/>APIs: USDA + Nutritionix fallback]
+            N_MANUAL[✏️ Manual Entry<br/>tools/nutrition/manual_entry.py<br/>Fallback calorie input<br/>Allows: "500 calories"]
+            N_STORE[💾 Meal Storage<br/>tools/nutrition/meal_storage.py<br/>Database operations<br/>Stores: calories, protein, macros]
+        end
+    end
+
+    subgraph "Fitness Agent Tools"
+        FIT[💪 Fitness Agent<br/>Workout Analysis]
+
+        subgraph "Fitness-Specific Tools"
+            F_PARSER[🏋️ Batch Parser<br/>tools/fitness/batch_parser.py<br/>Exercise processing<br/>Parses: "3 sets squats 80kg"]
+            F_CALC[📊 Calculator<br/>tools/fitness/calculator.py<br/>Volume & progression<br/>Calculates: total volume, PRs]
+            F_STORE[💾 Workout Storage<br/>tools/fitness/workout_storage.py<br/>Database operations<br/>Stores: exercises, sets, reps, weight]
+        end
+    end
+
+    subgraph "Wellness Agent Tools"
+        WELL[😴 Wellness Agent<br/>Health Tracking]
+
+        subgraph "Wellness-Specific Tools"
+            W_PARSER[💧 Parser<br/>tools/wellness/wellness_logger.py<br/>Health metric extraction<br/>Parses: sleep, water, steps]
+            W_CORR[🔗 Correlations<br/>tools/wellness/correlations.py<br/>Health pattern analysis<br/>Analyzes: sleep vs. calories]
+        end
+    end
+
+    subgraph "Analytics Agent Tools"
+        ANAL[📊 Analytics Agent<br/>Progress Reports]
+
+        subgraph "Analytics-Specific Tools"
+            A_CALC[📈 Calculator<br/>tools/analytics/calculator.py<br/>Progress metrics<br/>Computes: weekly averages, trends]
+            A_TRENDS[📉 Trends<br/>tools/analytics/trends.py<br/>Historical analysis<br/>Analyzes: progress over time]
+            A_HERO[🏆 Hero Stats<br/>tools/analytics/hero_stats.py<br/>Achievement highlights<br/>Finds: best days, streaks]
+        end
+    end
+
+    subgraph "Nudge Agent Tools"
+        NUDGE[🔔 Nudge Agent<br/>Reminders]
+
+        subgraph "Nudge-Specific Tools"
+            NU_SCHED[⏰ Scheduler<br/>tools/nudge/scheduler.py<br/>Timezone-aware timing<br/>Schedules: daily/weekly reminders]
+            NU_GEN[🎨 Generator<br/>tools/nudge/generator.py<br/>Personalized messages<br/>Creates: motivational nudges]
+            NU_STREAK[🔥 Streak Tracker<br/>tools/nudge/streak_analyzer.py<br/>Habit consistency<br/>Tracks: logging streaks, patterns]
+        end
+    end
+
+    %% Tool Usage Connections
+    ROOT -->|"Intent Classification"| INTENT
+    ROOT -->|"Emotional Analysis"| SENT
+    ROOT -->|"Response Formatting"| FMT
+    ROOT -->|"Batch Processing"| BATCH
+
+    NUTR -->|"Food Parsing"| N_PARSER
+    NUTR -->|"Nutrition Calculation"| N_CALC
+    NUTR -->|"Manual Entry"| N_MANUAL
+    NUTR -->|"Data Storage"| N_STORE
+
+    FIT -->|"Exercise Parsing"| F_PARSER
+    FIT -->|"Volume Calculation"| F_CALC
+    FIT -->|"Data Storage"| F_STORE
+
+    WELL -->|"Metric Parsing"| W_PARSER
+    WELL -->|"Pattern Analysis"| W_CORR
+
+    ANAL -->|"Metric Calculation"| A_CALC
+    ANAL -->|"Trend Analysis"| A_TRENDS
+    ANAL -->|"Achievement Detection"| A_HERO
+
+    NUDGE -->|"Timing Logic"| NU_SCHED
+    NUDGE -->|"Message Creation"| NU_GEN
+    NUDGE -->|"Streak Analysis"| NU_STREAK
+
+    %% Cross-agent tool sharing
+    NUTR -.->|"Can use core tools"| INTENT
+    NUTR -.->|"Can use core tools"| SENT
+    NUTR -.->|"Can use core tools"| FMT
+    NUTR -.->|"Can use core tools"| BATCH
+
+    FIT -.->|"Can use core tools"| INTENT
+    FIT -.->|"Can use core tools"| SENT
+    FIT -.->|"Can use core tools"| FMT
+    FIT -.->|"Can use core tools"| BATCH
+
+    WELL -.->|"Can use core tools"| INTENT
+    WELL -.->|"Can use core tools"| SENT
+    WELL -.->|"Can use core tools"| FMT
+    WELL -.->|"Can use core tools"| BATCH
+
+    ANAL -.->|"Can use core tools"| INTENT
+    ANAL -.->|"Can use core tools"| SENT
+    ANAL -.->|"Can use core tools"| FMT
+    ANAL -.->|"Can use core tools"| BATCH
+
+    NUDGE -.->|"Can use core tools"| INTENT
+    NUDGE -.->|"Can use core tools"| SENT
+    NUDGE -.->|"Can use core tools"| FMT
+    NUDGE -.->|"Can use core tools"| BATCH
+
+    %% External Dependencies
+    N_CALC -.->|"USDA API"| USDA[🌽 USDA FoodData Central]
+    N_CALC -.->|"Nutritionix API"| NUTRIX[🥗 Nutritionix Fallback]
+
+    INTENT -.->|"Gemini AI"| GEMINI[🤖 Google Gemini 2.5 Flash]
+    SENT -.->|"Gemini AI"| GEMINI
+    FMT -.->|"Gemini AI"| GEMINI
+
+    %% Styling
+    style ROOT fill:#ffecb3,stroke:#ff6f00,stroke-width:3px
+    style GEMINI fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+
+    %% Subgraph styling
+    classDef agentClass fill:#fff9c4,stroke:#f57c00,stroke-width:2px
+    classDef toolClass fill:#f3e5f5,stroke:#7b1fa2,stroke-width:1px
+    classDef coreToolClass fill:#e1f5fe,stroke:#01579b,stroke-width:1px
+
+    class NUTR,FIT,WELL,ANAL,NUDGE agentClass
+    class N_PARSER,N_CALC,N_MANUAL,N_STORE,F_PARSER,F_CALC,F_STORE,W_PARSER,W_CORR,A_CALC,A_TRENDS,A_HERO,NU_SCHED,NU_GEN,NU_STREAK toolClass
+    class INTENT,SENT,FMT,BATCH coreToolClass
+```
+
+### Conversation Flows & Error Handling
+
+```mermaid
+sequenceDiagram
+    participant U as 👤 User
+    participant T as 🤖 Telegram Bot
+    participant ADK as 🔄 ADK Runner
+    participant ROOT as 🎯 Root Agent
+    participant NUTR as 🍽️ Nutrition Agent
+    participant TOOLS as 🛠️ Tools
+    participant DB as 📊 Database
+    participant API as 🌽 External APIs
+
+    %% Normal Conversation Flow - Nutrition Example
+    rect rgb(240, 255, 240)
+        Note over U,API: Normal Conversation Flow - Meal Logging
+        U->>T: "I ate 2 eggs and toast"
+        T->>ADK: process_message()
+        ADK->>ADK: classify_intent("nutrition")
+        ADK->>ROOT: route_to_agent(nutrition_agent)
+
+        ROOT->>NUTR: transfer_to_agent()
+        NUTR->>TOOLS: parse_meal_batch()
+        TOOLS->>API: lookup_nutrition_usda()
+        API-->>TOOLS: nutrition_data
+        TOOLS->>TOOLS: calculate_nutrition()
+        TOOLS->>DB: store_meal_log()
+        DB-->>TOOLS: meal_id
+
+        NUTR->>ROOT: "Logged: 305 cal, 18g protein"
+        ROOT->>ADK: format_response()
+        ADK->>T: send_to_user()
+        T->>U: ✅ Breakfast logged! 305 calories, 18g protein
+    end
+
+    %% Normal Conversation Flow - Fitness Example
+    rect rgb(255, 248, 240)
+        Note over U,API: Normal Conversation Flow - Workout Logging
+        U->>T: "Did 3 sets of squats 80kg"
+        T->>ADK: process_message()
+        ADK->>ADK: classify_intent("fitness")
+        ADK->>ROOT: route_to_agent(fitness_agent)
+
+        ROOT->>FIT: transfer_to_agent()
+        FIT->>TOOLS: parse_workout_batch()
+        TOOLS->>TOOLS: calculate_volume()
+        TOOLS->>DB: store_workout_log()
+        DB-->>TOOLS: workout_id
+
+        FIT->>ROOT: "Logged: 2400 volume units"
+        ROOT->>ADK: format_response()
+        ADK->>T: send_to_user()
+        T->>U: 💪 Workout logged! Great strength work!
+    end
+
+    %% Error Flow - API Failure with Fallback
+    rect rgb(255, 240, 240)
+        Note over U,API: Error Handling Flow - API Failure
+        U->>T: "Ate chicken breast and rice"
+        T->>ADK: process_message()
+        ADK->>ROOT: route_to_agent(nutrition_agent)
+
+        ROOT->>NUTR: transfer_to_agent()
+        NUTR->>TOOLS: parse_meal_batch()
+        TOOLS->>API: lookup_nutrition_usda()
+        API-->>TOOLS: ❌ API Error (Service Down)
+
+        TOOLS->>API: lookup_nutrition_nutritionix()
+        API-->>TOOLS: ✅ Fallback Success
+        TOOLS->>TOOLS: calculate_nutrition()
+        TOOLS->>DB: store_meal_log()
+
+        NUTR->>ROOT: "Logged with fallback data"
+        ROOT->>ADK: format_response()
+        ADK->>T: send_to_user()
+        T->>U: ✅ Meal logged! (Used backup nutrition data)
+    end
+
+    %% Error Flow - Complete API Failure
+    rect rgb(255, 235, 235)
+        Note over U,API: Error Handling Flow - Complete Failure
+        U->>T: "Ate salmon and broccoli"
+        T->>ADK: process_message()
+        ADK->>ROOT: route_to_agent(nutrition_agent)
+
+        ROOT->>NUTR: transfer_to_agent()
+        NUTR->>TOOLS: parse_meal_batch()
+        TOOLS->>API: lookup_nutrition_usda()
+        API-->>TOOLS: ❌ API Error
+        TOOLS->>API: lookup_nutrition_nutritionix()
+        API-->>TOOLS: ❌ API Error
+
+        TOOLS->>NUTR: fallback_to_manual()
+        NUTR->>ROOT: "Need manual calorie entry"
+        ROOT->>ADK: format_response()
+        ADK->>T: send_to_user()
+        T->>U: ❓ I couldn't find nutrition data. How many calories was that?
+    end
+
+    %% Error Flow - Agent Processing Error
+    rect rgb(255, 245, 245)
+        Note over U,API: Error Handling Flow - Agent Error
+        U->>T: "Show me progress"
+        T->>ADK: process_message()
+        ADK->>ADK: classify_intent("analytics")
+        ADK->>ROOT: route_to_agent(analytics_agent)
+
+        ROOT->>ANAL: transfer_to_agent()
+        ANAL->>TOOLS: calculate_progress()
+        TOOLS->>DB: query_analytics_data()
+        DB-->>TOOLS: data
+        TOOLS-->>ANAL: ❌ Processing Error
+
+        ANAL->>ROOT: error_response()
+        ROOT->>ADK: graceful_error_handling()
+        ADK->>T: send_to_user()
+        T->>U: ❌ Sorry, I had trouble generating your report. Try again?
+    end
+
+    %% Batch Processing Flow
+    rect rgb(240, 248, 255)
+        Note over U,API: Batch Processing Flow
+        U->>T: "Breakfast: 2 eggs, toast, coffee"
+        T->>ADK: process_message()
+        ADK->>ROOT: route_to_agent(nutrition_agent)
+
+        ROOT->>NUTR: transfer_to_agent()
+        NUTR->>BATCH: batch_state_manager()
+        BATCH-->>NUTR: batch_mode_activated
+
+        NUTR->>ROOT: "Got it! What else for breakfast?"
+        ROOT->>ADK: format_response()
+        ADK->>T: send_to_user()
+        T->>U: 🍽️ Breakfast started! What else did you have?
+
+        U->>T: "A banana"
+        T->>ADK: process_message()
+        ADK->>ROOT: route_to_agent(nutrition_agent)
+        ROOT->>NUTR: continue_batch()
+        NUTR->>BATCH: add_to_batch()
+        BATCH-->>NUTR: batch_updated
+
+        NUTR->>ROOT: "Added! Anything else?"
+        ROOT->>ADK: format_response()
+        ADK->>T: send_to_user()
+        T->>U: ✅ Added banana! Is that all for breakfast?
+
+        U->>T: "Yes"
+        T->>ADK: process_message()
+        ADK->>ROOT: route_to_agent(nutrition_agent)
+        ROOT->>NUTR: finalize_batch()
+        NUTR->>TOOLS: process_batch()
+        TOOLS->>API: bulk_nutrition_lookup()
+        API-->>TOOLS: nutrition_data
+        TOOLS->>DB: store_batch_meals()
+
+        NUTR->>ROOT: "Batch complete!"
+        ROOT->>ADK: format_response()
+        ADK->>T: send_to_user()
+        T->>U: 🎉 Breakfast logged! Total: 410 cal, 19g protein
+    end
+
+    %% Session Continuity Flow
+    rect rgb(248, 255, 248)
+        Note over U,API: Session Continuity Flow
+        U->>T: "Hello"
+        T->>ADK: process_message(session_123)
+        ADK->>SESS: get_session_context()
+        SESS-->>ADK: context_data
+        ADK->>ROOT: handle_greeting()
+
+        ROOT->>SENT: detect_sentiment()
+        SENT-->>ROOT: positive_sentiment
+        ROOT->>ROOT: generate_welcome()
+        ROOT->>ADK: format_response()
+        ADK->>SESS: update_session()
+        ADK->>T: send_to_user()
+        T->>U: 👋 Hi! How can I help with your weight loss journey?
+
+        Note over SESS: Session context preserved across messages
+    end
+
+%% Participants for additional flows
+    participant FIT as 💪 Fitness Agent
+    participant ANAL as 📊 Analytics Agent
+    participant BATCH as 📦 Batch Manager
+    participant SESS as 💾 Session Service
+```
 - **Type**: `LlmAgent` powered by Google Gemini 2.5 Flash
 - **Role**: Main conversation orchestrator that routes user messages to specialized sub-agents
 - **Intelligence**: Uses intent classification and sentiment analysis to determine appropriate agent routing
@@ -269,6 +808,10 @@ DATABASE_URL=sqlite:///./weight_loss_app.db
 # Optional: Database encryption
 DATABASE_ENCRYPT=false
 DATABASE_KEY=your-encryption-key-here
+
+# Logging and Debug
+LOG_LEVEL=INFO
+DEBUG=false
 ```
 
 ### 4. Initialize Database
@@ -277,12 +820,24 @@ DATABASE_KEY=your-encryption-key-here
 python -c "from database.models import init_db; init_db()"
 ```
 
-### 5. Start the Bot
+### 5. Test Environment (Recommended)
+```bash
+# Run environment diagnostic
+python diagnose_env.py
+
+# Test Google ADK availability
+python -c "
+from adk_integration import ADK_AVAILABLE
+print(f'ADK Available: {ADK_AVAILABLE}')
+"
+```
+
+### 6. Start the Bot
 ```bash
 python -m telegram_bot.bot
 ```
 
-### 6. Test Your Bot
+### 7. Test Your Bot
 1. Open Telegram and search for your bot
 2. Send `/start` or just say "hello"
 3. Follow the onboarding prompts
@@ -662,9 +1217,42 @@ export DATABASE_KEY=your-secure-encryption-key
 
 ## 🐛 Troubleshooting
 
-### Bot Not Responding
+### Environment Issues
+
+#### Google ADK Not Available
 ```bash
-# Check bot token validity
+# Check ADK status
+python -c "
+from adk_integration import ADK_AVAILABLE
+print(f'ADK Available: {ADK_AVAILABLE}')
+"
+
+# Restart environment
+bash restart_env.sh
+
+# Run diagnostic
+python diagnose_env.py
+```
+
+#### Import Errors
+```bash
+# Test all imports
+python -c "
+try:
+    from config.gemini import PatchedGemini
+    from database.models import init_db
+    from telegram_bot.bot import TelegramBot
+    print('✅ All imports successful')
+except Exception as e:
+    print(f'❌ Import error: {e}')
+"
+```
+
+### Bot Not Responding
+
+#### Check Bot Token Validity
+```bash
+# Test bot token
 python -c "
 import os
 from telegram import Bot
@@ -673,19 +1261,44 @@ print('Bot info:', bot.get_me())
 "
 ```
 
-### Database Issues
+#### Check Bot Logs
 ```bash
-# Reset database
+# View recent logs
+tail -f logs/bot.log
+
+# With timestamps
+tail -f logs/bot.log | grep -E "(ERROR|WARNING|INFO)"
+```
+
+### Database Issues
+
+#### Reset Database
+```bash
+# Remove old database
 rm weight_loss_app.db
+
+# Recreate tables
 python -c "from database.models import init_db; init_db()"
 
-# Check database schema
+# Check schema
 python -c "from database.models import engine; from sqlalchemy import inspect; print([t for t in inspect(engine).get_table_names()])"
 ```
 
-### Agent Errors
+#### Database Corruption
 ```bash
-# Test agent initialization
+# Backup existing data (if needed)
+cp weight_loss_app.db weight_loss_app.db.backup
+
+# Reset and reinitialize
+rm weight_loss_app.db
+python -c "from database.models import init_db; init_db()"
+```
+
+### Agent Errors
+
+#### Test Agent Initialization
+```bash
+# Test ADK runner
 python -c "
 from adk_integration import initialize_agent_runner
 import asyncio
@@ -700,9 +1313,26 @@ print('Nutrition agent loaded:', nutrition_agent.name)
 "
 ```
 
-### API Errors
+#### Agent Processing Issues
 ```bash
-# Test Gemini API
+# Test agent message processing
+python -c "
+from adk_integration import process_agent_message
+import asyncio
+
+async def test():
+    response = await process_agent_message('test_user', 'hello')
+    print('Agent response:', response['text'])
+
+asyncio.run(test())
+"
+```
+
+### API Errors
+
+#### Test Gemini API
+```bash
+# Test Gemini connectivity
 python -c "
 import google.generativeai as genai
 genai.configure(api_key=os.getenv('GOOGLE_GENAI_API_KEY'))
@@ -710,7 +1340,10 @@ model = genai.GenerativeModel('gemini-2.5-flash-lite')
 response = model.generate_content('Hello')
 print('Gemini response:', response.text[:100])
 "
+```
 
+#### Test USDA API
+```bash
 # Test USDA API
 python -c "
 from tools.nutrition.usda_client import lookup_nutrition_usda
@@ -720,19 +1353,125 @@ print('USDA result:', result)
 "
 ```
 
+#### Test Nutritionix API (Fallback)
+```bash
+# Test Nutritionix API
+python -c "
+from tools.nutrition.nutritionix_client import lookup_nutrition_nutritionix
+import asyncio
+result = asyncio.run(lookup_nutrition_nutritionix('chicken breast'))
+print('Nutritionix result:', result)
+"
+```
+
+### Performance Issues
+
+#### Slow Response Times
+```bash
+# Check system resources
+top -p $(pgrep -f telegram_bot)
+
+# Monitor API usage
+python -c "
+from database.analytics_manager import analytics_manager
+usage = analytics_manager.get_api_usage_stats()
+print('API Usage:', usage)
+"
+```
+
+#### Memory Usage
+```bash
+# Check memory usage
+ps aux | grep telegram_bot
+
+# Monitor with htop
+htop
+```
+
+### Common Error Messages
+
+#### "Agent framework is not fully initialized"
+- **Cause**: Google ADK not properly loaded
+- **Solution**: Run `bash restart_env.sh` and check `python diagnose_env.py`
+
+#### "No module named 'google.adk'"
+- **Cause**: ADK package not installed
+- **Solution**: `uv pip install google-adk`
+
+#### "FunctionTool doesn't accept 'description' parameter"
+- **Cause**: Using old ADK API
+- **Solution**: Update to google-adk v1.18.0+ (descriptions use docstrings)
+
+#### "Database locked"
+- **Cause**: Multiple processes accessing SQLite
+- **Solution**: Close other bot instances, restart
+
+#### "API rate limit exceeded"
+- **Cause**: Too many API calls
+- **Solution**: Wait and retry, check API usage stats
+
+### Development Debugging
+
+#### Enable Debug Logging
+```bash
+# Set environment variables
+export LOG_LEVEL=DEBUG
+export DEBUG=true
+
+# Restart bot
+python -m telegram_bot.bot
+```
+
+#### Test Individual Components
+```bash
+# Test intent classification
+python -c "
+from tools.intent_classifier import classify_intent
+import asyncio
+result = asyncio.run(classify_intent('I ate chicken'))
+print('Intent result:', result)
+"
+
+# Test sentiment analysis
+python -c "
+from tools.sentiment_detector import detect_sentiment
+import asyncio
+result = asyncio.run(detect_sentiment('This is great!'))
+print('Sentiment result:', result)
+"
+```
+
+#### Profile Performance
+```bash
+# Use cProfile for performance analysis
+python -m cProfile -s time telegram_bot/bot.py
+```
+
+### Getting Help
+
+1. **Check Logs**: Always check `logs/bot.log` first
+2. **Run Diagnostics**: Use `python diagnose_env.py`
+3. **Test APIs**: Verify external services are working
+4. **Restart Environment**: Try `bash restart_env.sh`
+5. **Check Issues**: Search existing GitHub issues
+6. **Create Issue**: Include full logs and error messages
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
-- **Google ADK**: Agent Development Kit for multi-agent architecture
-- **Google Gemini**: Advanced AI language model capabilities
+- **Google ADK**: Agent Development Kit for multi-agent architecture (v1.18.0)
+- **Google Gemini**: Advanced AI language model capabilities (2.5 Flash)
 - **Telegram**: Reliable bot platform and API
 - **USDA**: Official nutrition data and FoodData Central API
-- **Nutritionix**: Comprehensive food database and API
+- **Nutritionix**: Comprehensive food database and API fallback
 - **SQLAlchemy**: Powerful ORM for data persistence
-- **Pydantic**: Type-safe configuration and validation
+- **Pydantic**: Type-safe configuration and validation (v2)
+- **python-telegram-bot**: Robust Telegram bot framework (v22+)
+- **APScheduler**: Advanced scheduling for autonomous features
+- **cryptography**: Secure data encryption capabilities
 
 ## 📞 Support
 
@@ -740,6 +1479,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Discussions**: [GitHub Discussions](https://github.com/your-repo/discussions)
 - **Documentation**: See `docs/` and `specs/` directories
 - **Constitution**: Review `Docs/speckit_constitution.md` for development guidelines
+- **Environment Diagnostics**: Run `python diagnose_env.py` for troubleshooting
+- **Environment Restart**: Use `bash restart_env.sh` for quick fixes
 
 ---
 

@@ -16,7 +16,7 @@ Key features:
 import asyncio
 import logging
 from typing import Dict, Any, Optional, Callable
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 from telegram import Update, BotCommand, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import (
@@ -269,7 +269,7 @@ class TelegramBot:
                 return
 
             # Get recent activity counts and details
-            today = datetime.utcnow().date()
+            today = date.today()
 
             meal_count = session.query(MealLog).filter(
                 MealLog.user_id == user_id,
