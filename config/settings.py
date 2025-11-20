@@ -51,7 +51,7 @@ class Settings(BaseSettings):
 
     # Gemini API Configuration
     google_genai_api_key: str = Field(..., env="GOOGLE_GENAI_API_KEY")
-    gemini_model: str = Field(default="gemini-2.5-flash-lite", env="GEMINI_MODEL")
+    gemini_model: str = Field(default="gemini-2.0-flash-lite", env="GEMINI_MODEL")
     gemini_temperature: float = Field(default=0.7, env="GEMINI_TEMPERATURE")
     gemini_max_tokens: int = Field(default=2048, env="GEMINI_MAX_TOKENS")
 

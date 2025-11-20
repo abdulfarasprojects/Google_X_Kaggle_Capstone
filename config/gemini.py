@@ -17,213 +17,97 @@ import asyncio
 import logging
 from typing import Dict, Any, Optional, List, Union
 from datetime import datetime, timedelta
-
-from google import genai
-from google.adk import agents, sessions
-from google.adk.models import Gemini
-from google.genai import Client, types
-from google.api_core import exceptions as google_exceptions
-from functools import cached_property
-from google.genai import Client, types
 from functools import cached_property
 
 from config.settings import settings
 from config.logging import error_context, log_performance, ErrorHandler
-from database.init import get_db_session
-from database.models import ApiUsage
+
+# Lazy imports - avoid loading google.genai at module level as it has heavy dependencies
+# These will be imported in _lazy_load_gemini() when needed
+_genai = None
+_Client = None
+_types = None
+_google_exceptions = None
+_db_session = None
+_ApiUsage = None
+
+def _lazy_load_gemini():
+    """Lazy load Gemini SDK only when needed"""
+    global _genai, _Client, _types, _google_exceptions, _db_session, _ApiUsage
+    
+    if _genai is not None:
+        return
+    
+    try:
+        from google import genai
+        from google.genai import Client, types
+        from google.api_core import exceptions as google_exceptions
+        from database.init import get_db_session
+        from database.models import ApiUsage
+        
+        _genai = genai
+        _Client = Client
+        _types = types
+        _google_exceptions = google_exceptions
+        _db_session = get_db_session
+        _ApiUsage = ApiUsage
+    except ImportError as e:
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to lazy load Gemini SDK: {e}")
+
+
+logger = logging.getLogger(__name__)
+
+# Lazy imports to avoid loading the entire google.adk stack on module import
+# These will be imported only when ADKAgentManager is actually used
+# from google.adk import agents, sessions
+from google.adk.models import Gemini
 
 
 class PatchedGemini(Gemini):
     """
     Patched Gemini model that properly configures API authentication.
     
-    The base Gemini class doesn't pass API keys to the Client, so we override
-    the api_client property to include the API key from settings.
+    Inherits from Gemini and overrides the api_client property to include
+    the API key from settings.
     """
     
-    @cached_property
+    def __init__(self, model: str = "gemini-2.0-flash"):
+        """Initialize the patched Gemini client"""
+        # Initialize with model_name parameter
+        super().__init__(model_name=model)
+        # Initialize the API client attribute
+        self._api_client = None
+    
+    @property
     def api_client(self):
-        """Override api_client to include API key authentication."""
-        return Client(
-            api_key=settings.google_genai_api_key,
-            http_options=types.HttpOptions(
-                headers=self._tracking_headers,
-                retry_options=self.retry_options,
+        """Get or create the API client with proper authentication"""
+        if self._api_client is None:
+            _lazy_load_gemini()
+            self._api_client = _Client(
+                api_key=settings.google_genai_api_key,
+                http_options=_types.HttpOptions()
             )
-        )
+        return self._api_client
 
-logger = logging.getLogger(__name__)
+
+# GeminiClient and other heavy classes are disabled for now
+# Only PatchedGemini is used, which does lazy loading on first access
 
 
 class GeminiClient:
     """
-    Google Gemini API client with ADK integration.
-
-    Provides high-level interface for Gemini model interactions with
-    built-in error handling, retry logic, and cost tracking.
+    DISABLED - Google Gemini API client with ADK integration.
+    Use PatchedGemini instead for lazy initialization.
     """
 
     def __init__(self):
-        self.client: Optional[genai.Client] = None
+        self.client = None
         self._initialized = False
-        self._rate_limiter = RateLimiter()
+        self._rate_limiter = None
 
     async def initialize(self) -> bool:
-        """
-        Initialize the Gemini client.
-
-        Returns:
-            bool: True if initialization successful
-        """
-        try:
-            with error_context("gemini_client_init"):
-                # Create client with API key
-                self.client = genai.Client(api_key=settings.google_genai_api_key)
-
-                # Test connection with a simple request
-                test_response = await self._test_connection()
-                if test_response:
-                    self._initialized = True
-                    logger.info("Gemini client initialized successfully")
-                    return True
-                else:
-                    logger.error("Gemini client test connection failed")
-                    return False
-
-        except Exception as e:
-            logger.error(f"Gemini client initialization failed: {e}")
-            return False
-
-    async def _test_connection(self) -> bool:
-        """Test connection to Gemini API."""
-        try:
-            # Create a simple test model
-            model = self.client.models.generate_content(
-                model=settings.gemini_model,
-                contents="Hello",
-                config=genai.GenerateContentConfig(
-                    temperature=0.1,
-                    max_output_tokens=10
-                )
-            )
-
-            # Try to get a response
-            response = await asyncio.wait_for(
-                model,
-                timeout=10
-            )
-
-            return response is not None
-
-        except Exception as e:
-            logger.warning(f"Gemini connection test failed: {e}")
-            return False
-
-    async def generate_content(
-        self,
-        prompt: str,
-        model: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
-        **kwargs
-    ) -> Optional[Dict[str, Any]]:
-        """
-        Generate content using Gemini model.
-
-        Args:
-            prompt: Text prompt for generation
-            model: Model name (defaults to settings)
-            temperature: Sampling temperature
-            max_tokens: Maximum output tokens
-            **kwargs: Additional parameters
-
-        Returns:
-            Dict containing response data or None if failed
-        """
-        if not self._initialized or not self.client:
-            logger.error("Gemini client not initialized")
-            return None
-
-        # Check rate limit
-        if not await self._rate_limiter.check_limit():
-            logger.warning("Gemini API rate limit exceeded")
-            return None
-
-        model = model or settings.gemini_model
-        temperature = temperature if temperature is not None else settings.gemini_temperature
-        max_tokens = max_tokens or settings.gemini_max_tokens
-
-        start_time = datetime.utcnow()
-
-        try:
-            with error_context("gemini_generate_content"):
-                # Create generation config
-                config = genai.GenerateContentConfig(
-                    temperature=temperature,
-                    max_output_tokens=max_tokens,
-                    **kwargs
-                )
-
-                # Generate content
-                response = await asyncio.wait_for(
-                    self.client.models.generate_content(
-                        model=model,
-                        contents=prompt,
-                        config=config
-                    ),
-                    timeout=settings.api_timeout_seconds
-                )
-
-                # Track API usage
-                await self._track_api_usage("gemini", "generate_content", cost_usd=0.001)  # Estimate
-
-                # Calculate performance
-                duration = (datetime.utcnow() - start_time).total_seconds()
-                log_performance("gemini_generate_content", duration, success=True)
-
-                return {
-                    "text": response.text if hasattr(response, 'text') else "",
-                    "metadata": getattr(response, 'metadata', {}),
-                    "usage": getattr(response, 'usage', {}),
-                    "duration": duration
-                }
-
-        except google_exceptions.ResourceExhausted:
-            logger.warning("Gemini API quota exceeded")
-            await self._track_api_usage("gemini", "generate_content_quota_exceeded")
-            return None
-
-        except asyncio.TimeoutError:
-            logger.warning("Gemini API request timed out")
-            duration = (datetime.utcnow() - start_time).total_seconds()
-            log_performance("gemini_generate_content", duration, success=False)
-            return None
-
-        except Exception as e:
-            duration = (datetime.utcnow() - start_time).total_seconds()
-            log_performance("gemini_generate_content", duration, success=False)
-
-            if ErrorHandler.is_retryable(e):
-                logger.warning(f"Retryable Gemini error: {e}")
-            else:
-                logger.error(f"Non-retryable Gemini error: {e}")
-
-            return None
-
-    async def _track_api_usage(self, provider: str, endpoint: str, request_count: int = 1, cost_usd: float = 0.0) -> None:
-        """Track API usage for cost monitoring."""
-        try:
-            with get_db_session() as session:
-                usage = ApiUsage(
-                    provider=provider,
-                    endpoint=endpoint,
-                    request_count=request_count,
-                    cost_usd=cost_usd
-                )
-                session.add(usage)
-                session.commit()
-        except Exception as e:
-            logger.warning(f"Failed to track API usage: {e}")
+        raise NotImplementedError("GeminiClient is disabled. Use PatchedGemini instead.")
 
 
 class ADKAgentManager:
@@ -232,12 +116,29 @@ class ADKAgentManager:
 
     Provides utilities for creating, managing, and coordinating
     multiple ADK agents with session management.
+    
+    Note: This class uses lazy imports to avoid loading google.adk
+    until it's actually needed.
     """
 
     def __init__(self):
         self.gemini_client = GeminiClient()
-        self.agents: Dict[str, agents.Agent] = {}
+        self.agents: Dict[str, Any] = {}  # Will store agent instances
         self._initialized = False
+        self._agents_module = None  # Lazy import
+        self._sessions_module = None  # Lazy import
+
+    def _ensure_adk_imports(self):
+        """Lazily import ADK modules only when needed"""
+        if self._agents_module is None:
+            try:
+                from google.adk import agents as agents_module
+                from google.adk import sessions as sessions_module
+                self._agents_module = agents_module
+                self._sessions_module = sessions_module
+            except ImportError as e:
+                logger.error(f"Failed to import google.adk modules: {e}")
+                raise
 
     async def initialize(self) -> bool:
         """
@@ -248,6 +149,9 @@ class ADKAgentManager:
         """
         try:
             with error_context("adk_agent_manager_init"):
+                # Ensure ADK modules are imported
+                self._ensure_adk_imports()
+                
                 # Initialize Gemini client
                 if not await self.gemini_client.initialize():
                     logger.error("Failed to initialize Gemini client for ADK")
@@ -267,7 +171,7 @@ class ADKAgentManager:
         description: str,
         tools: Optional[List[Dict[str, Any]]] = None,
         **kwargs
-    ) -> Optional[agents.Agent]:
+    ) -> Optional[Any]:
         """
         Create a new ADK agent.
 
@@ -285,6 +189,9 @@ class ADKAgentManager:
             return None
 
         try:
+            # Ensure ADK imports are loaded
+            self._ensure_adk_imports()
+            
             # Set default parameters
             agent_config = {
                 "model": settings.gemini_model,
@@ -295,7 +202,7 @@ class ADKAgentManager:
             }
 
             # Create agent
-            agent = agents.Agent(
+            agent = self._agents_module.Agent(
                 name=name,
                 description=description,
                 **agent_config
@@ -337,8 +244,11 @@ class ADKAgentManager:
 
         try:
             with error_context("adk_agent_session", user_id=user_id, agent=agent_name):
+                # Ensure ADK imports are loaded
+                self._ensure_adk_imports()
+                
                 # Create session
-                session = sessions.Session(
+                session = self._sessions_module.Session(
                     agent=agent,
                     user_id=user_id,
                     context=context or {}
@@ -358,7 +268,7 @@ class ADKAgentManager:
             logger.error(f"Agent session failed for {agent_name}: {e}")
             return None
 
-    def get_agent(self, name: str) -> Optional[agents.Agent]:
+    def get_agent(self, name: str) -> Optional[Any]:
         """Get agent by name."""
         return self.agents.get(name)
 

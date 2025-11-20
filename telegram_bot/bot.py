@@ -26,7 +26,7 @@ from telegram.ext import (
 from telegram.error import TimedOut, NetworkError
 
 from config.settings import settings
-from database.init import get_db_session
+from database.init import get_db_session, init_database
 from database.models import SessionState, UserProfile, MealLog, WorkoutLog, WellnessLog
 
 from agents.onboarding_agent import onboarding_agent
@@ -87,10 +87,24 @@ class TelegramBot:
         """Initialize the bot application with handlers."""
         logger.info("Initializing Telegram bot...")
 
-        # Initialize ADK agent runner first
+        # Initialize database with schema
+        try:
+            if init_database():
+                logger.info("✅ Database initialized successfully")
+            else:
+                logger.error("❌ Failed to initialize database")
+                raise RuntimeError("Database initialization failed")
+        except Exception as e:
+            logger.error(f"❌ Database initialization error: {e}")
+            raise
+
+        # Initialize ADK agent runner (if available)
         try:
             asyncio.run(initialize_agent_runner())
-            logger.info("ADK agent runner initialized")
+            logger.info("✅ ADK agent runner initialized")
+        except ImportError as e:
+            logger.warning(f"⚠️  ADK not available: {e}")
+            logger.warning("Bot will run without agent features until google.adk is installed")
         except Exception as e:
             logger.error(f"Failed to initialize ADK runner: {e}")
             raise
@@ -254,7 +268,7 @@ class TelegramBot:
                 )
                 return
 
-            # Get recent activity counts
+            # Get recent activity counts and details
             today = datetime.utcnow().date()
 
             meal_count = session.query(MealLog).filter(
@@ -272,6 +286,15 @@ class TelegramBot:
                 WellnessLog.log_date == today
             ).count()
 
+            # Get today's workout details
+            today_workouts = session.query(WorkoutLog).filter(
+                WorkoutLog.user_id == user_id,
+                WorkoutLog.log_date == today
+            ).all()
+
+            total_volume = sum(workout.total_volume for workout in today_workouts)
+            total_exercises = sum(len(workout.exercises_list) if workout.exercises_list else 0 for workout in today_workouts)
+
             status_text = (
                 f"📊 Your Status Today\n\n"
                 f"🎯 Goal: {profile.daily_calorie_goal} calories\n"
@@ -280,9 +303,31 @@ class TelegramBot:
                 f"Today's Activity:\n"
                 f"🍽️ Meals logged: {meal_count}\n"
                 f"💪 Workouts: {workout_count}\n"
+                f"🏋️ Total volume: {total_volume:,} lbs\n"
+                f"🎯 Exercises completed: {total_exercises}\n"
                 f"😴 Wellness entries: {wellness_count}\n\n"
-                "Keep up the great work! 💪"
             )
+
+            # Add workout details if any workouts were logged
+            if today_workouts:
+                status_text += "Today's Workouts:\n"
+                for i, workout in enumerate(today_workouts, 1):
+                    status_text += f"• Workout {i}: {workout.total_volume:,} lbs volume\n"
+                    if workout.exercises_list:
+                        for exercise in workout.exercises_list[:3]:  # Show up to 3 exercises per workout
+                            ex_name = exercise.get('name', 'Unknown')
+                            sets = exercise.get('sets', 0)
+                            reps = exercise.get('reps', 0)
+                            weight = exercise.get('weight', 0)
+                            status_text += f"  - {ex_name}: {sets}×{reps}"
+                            if weight:
+                                status_text += f"@{weight}lbs"
+                            status_text += "\n"
+                        if len(workout.exercises_list) > 3:
+                            status_text += f"  ... and {len(workout.exercises_list) - 3} more\n"
+                status_text += "\n"
+
+            status_text += "Keep up the great work! 💪"
 
         await update.message.reply_text(status_text)
 

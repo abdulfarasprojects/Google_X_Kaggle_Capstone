@@ -67,6 +67,10 @@ class BatchWorkoutParserTool(BaseTool):
 
         # Exercise patterns with confidence scores
         self.EXERCISE_PATTERNS = [
+            # "Exercise: sets of reps at weight"
+            (r'^(.+?):\s*(\d+)\s*(?:sets?|x)\s+of\s+(\d+)\s*(?:reps?|rep)\s+(?:at|@)\s+(\d+(?:\.\d+)?)\s*(lb|lbs|kg|kilogram|kilograms|g|gram|grams|pound|pounds)?$', 0.95),
+            # "Exercise: sets x reps at weight"
+            (r'^(.+?):\s*(\d+)\s*(?:sets?|x)\s*(\d+)\s*(?:reps?|rep)\s+(?:at|@)\s+(\d+(?:\.\d+)?)\s*(lb|lbs|kg|kilogram|kilograms|g|gram|grams|pound|pounds)?$', 0.95),
             # "sets x reps exercise at weight"
             (r'^(\d+)\s*(?:sets?|x)\s*(\d+)\s+(.+?)\s+(?:at|@)\s+(\d+(?:\.\d+)?)\s*(lb|lbs|kg|kilogram|kilograms|g|gram|grams|pound|pounds)?$', 0.95),
             # "sets x reps exercise weight unit"
@@ -214,47 +218,87 @@ class BatchWorkoutParserTool(BaseTool):
         groups = match.groups()
 
         if len(groups) == 6:
-            # Full pattern: sets x reps exercise at weight unit
-            sets = int(groups[0])
-            reps = int(groups[1])
-            exercise = groups[2].strip()
-            weight = float(groups[3])
-            unit = groups[4] if groups[4] else groups[5]
-            if unit:
-                unit = self._normalize_weight_unit(unit)
+            # "sets x reps exercise at weight unit" or "Exercise: sets x reps at weight unit"
+            if ':' in original_desc[:20]:  # Colon pattern
+                exercise = groups[0].strip()
+                sets = int(groups[1])
+                reps = int(groups[2])
+                weight = float(groups[4])
+                unit = groups[5] if groups[5] else None
+                if unit:
+                    unit = self._normalize_weight_unit(unit)
+            else:
+                # "sets x reps exercise at weight unit"
+                sets = int(groups[0])
+                reps = int(groups[1])
+                exercise = groups[2].strip()
+                weight = float(groups[3])
+                unit = groups[4] if groups[4] else groups[5]
+                if unit:
+                    unit = self._normalize_weight_unit(unit)
         elif len(groups) == 5:
-            # Pattern: sets x reps exercise weight unit (no 'at')
-            sets = int(groups[0])
-            reps = int(groups[1])
-            exercise = groups[2].strip()
-            weight = float(groups[3])
-            unit = groups[4]
-            unit = self._normalize_weight_unit(unit)
+            if ':' in original_desc[:20]:  # Colon pattern
+                if ' of ' in original_desc:
+                    # "Exercise: sets of reps at weight unit"
+                    exercise = groups[0].strip()
+                    sets = int(groups[1])
+                    reps = int(groups[2])
+                    weight = float(groups[3])
+                    unit = groups[4] if groups[4] else None
+                    if unit:
+                        unit = self._normalize_weight_unit(unit)
+                else:
+                    # "Exercise: sets x reps at weight unit"
+                    exercise = groups[0].strip()
+                    sets = int(groups[1])
+                    reps = int(groups[2])
+                    weight = float(groups[3])
+                    unit = groups[4] if groups[4] else None
+                    if unit:
+                        unit = self._normalize_weight_unit(unit)
+            else:
+                # "sets x reps exercise weight unit" or "reps exercise at weight unit"
+                if ' at ' in original_desc or ' @ ' in original_desc:
+                    # "reps exercise at weight unit"
+                    sets = 1  # Assume 1 set
+                    reps = int(groups[0])
+                    exercise = groups[1].strip()
+                    weight = float(groups[2])
+                    unit = groups[3] if groups[3] else groups[4]
+                    if unit:
+                        unit = self._normalize_weight_unit(unit)
+                else:
+                    # "sets x reps exercise weight unit"
+                    sets = int(groups[0])
+                    reps = int(groups[1])
+                    exercise = groups[2].strip()
+                    weight = float(groups[3])
+                    unit = groups[4]
+                    unit = self._normalize_weight_unit(unit)
         elif len(groups) == 4:
-            # Pattern: reps exercise at weight (optional unit)
+            # "reps exercise weight unit" (no 'at')
             sets = 1  # Assume 1 set
             reps = int(groups[0])
             exercise = groups[1].strip()
             weight = float(groups[2])
-            unit = groups[3] if groups[3] else None
-            if unit:
-                unit = self._normalize_weight_unit(unit)
+            unit = groups[3]
+            unit = self._normalize_weight_unit(unit)
         elif len(groups) == 3:
-            # Pattern: sets x reps exercise (bodyweight)
+            # "sets x reps exercise" (bodyweight)
             sets = int(groups[0])
             reps = int(groups[1])
             exercise = groups[2].strip()
             weight = None
             unit = None
         elif len(groups) == 2:
-            # Pattern: reps exercise (bodyweight)
+            # "reps exercise" (bodyweight)
             sets = 1  # Assume 1 set
             reps = int(groups[0])
             exercise = groups[1].strip()
             weight = None
             unit = None
         elif len(groups) == 1:
-            # Pattern: exercise only (very low confidence)
+            # "exercise" only (very low confidence)
             sets = 1
             reps = 1
             exercise = groups[0].strip()

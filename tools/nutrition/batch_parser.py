@@ -83,6 +83,9 @@ class BatchFoodParserTool(BaseTool):
             # Count
             'piece': 'piece', 'pieces': 'piece',
             'slice': 'slice', 'slices': 'slice',
+            'plate': 'plate', 'plates': 'plate',
+            'bowl': 'bowl', 'bowls': 'bowl',
+            'serving': 'serving', 'servings': 'serving',
             'whole': 'whole',
             'half': 'half',
             'quarter': 'quarter', 'quarters': 'quarter'

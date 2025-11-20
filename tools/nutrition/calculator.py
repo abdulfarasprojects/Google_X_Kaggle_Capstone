@@ -6,7 +6,6 @@ food items. Uses web search to find accurate calorie and macronutrient data.
 """
 
 import logging
-import re
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 
@@ -41,7 +40,7 @@ class MealNutritionCalculatorTool(BaseTool):
     def __init__(self):
         super().__init__(
             name="calculate_meal_nutrition",
-            description="Calculate nutrition information for a batch of parsed food items using web search",
+            description="Calculate nutrition information for a batch of parsed food items using reference database",
             parameters={
                 "type": "object",
                 "properties": {
@@ -69,7 +68,7 @@ class MealNutritionCalculatorTool(BaseTool):
                 },
                 "required": ["parsed_items", "meal_type", "user_id"]
             },
-            timeout_seconds=30  # Allow time for web searches
+            timeout_seconds=5  # Faster with reference data
         )
 
     async def execute(
@@ -164,203 +163,48 @@ class MealNutritionCalculatorTool(BaseTool):
 
     async def _calculate_item_nutrition(self, parsed_item: Dict[str, Any], tool_context: Optional[Any]) -> Optional[NutritionItem]:
         """
-        Calculate nutrition for a single parsed food item using web search.
+        Calculate nutrition for a single parsed food item using reference data.
 
         Args:
             parsed_item: Parsed food item data
-            tool_context: ADK tool context for web search
+            tool_context: ADK tool context (not used for reference data)
 
         Returns:
-            NutritionItem or None if search fails
+            NutritionItem or None if lookup fails
         """
         try:
             food_description = parsed_item.get('parsed_food', '')
             quantity = parsed_item.get('quantity', 1.0)
-            unit = parsed_item.get('unit', 'piece')
+            unit = parsed_item.get('unit', 'serving')
             parse_confidence = parsed_item.get('confidence', 0.5)
 
             if not food_description:
                 return None
 
-            # Use web search to find nutrition data
-            search_query = f"nutrition facts for {food_description} calories protein carbs fat per serving"
-            
-            # Import google_search here to avoid circular imports
-            from google.adk.tools.google_search_tool import google_search
-            
-            # Perform web search
-            search_result = await google_search.run_async(
-                args={"query": search_query},
-                tool_context=tool_context
+            # Use reference data for nutrition lookup
+            reference_result = nutrition_reference.calculate_nutrition_from_reference(
+                food_description, quantity, unit
             )
 
-            if not search_result or not search_result.success:
-                logger.warning(f"Web search failed for: {food_description}")
-                # Try reference data as fallback
-                reference_result = nutrition_reference.calculate_nutrition_from_reference(
-                    food_description, quantity, unit
-                )
-                if reference_result:
-                    logger.info(f"Using reference data for: {food_description}")
-                    return NutritionItem(
-                        food_name=reference_result['food_name'],
-                        calories=reference_result['calories'],
-                        protein_g=reference_result['protein_g'],
-                        carbs_g=reference_result['carbs_g'],
-                        fat_g=reference_result['fat_g'],
-                        confidence=reference_result['confidence'] * parse_confidence,
-                        source="reference_db"
-                    )
+            if not reference_result:
+                logger.warning(f"No reference data found for: {food_description}")
                 return None
 
-            # Parse search results to extract nutrition data
-            nutrition_data = self._parse_search_results(search_result.data, food_description)
-            
-            if not nutrition_data:
-                logger.warning(f"Could not parse nutrition data for: {food_description}")
-                # Try reference data as fallback
-                reference_result = nutrition_reference.calculate_nutrition_from_reference(
-                    food_description, quantity, unit
-                )
-                if reference_result:
-                    logger.info(f"Using reference data for: {food_description}")
-                    return NutritionItem(
-                        food_name=reference_result['food_name'],
-                        calories=reference_result['calories'],
-                        protein_g=reference_result['protein_g'],
-                        carbs_g=reference_result['carbs_g'],
-                        fat_g=reference_result['fat_g'],
-                        confidence=reference_result['confidence'] * parse_confidence,
-                        source="reference_db"
-                    )
-                return None
-
-            base_calories = nutrition_data.get('calories_per_serving', 0)
-            base_protein = nutrition_data.get('protein_g_per_serving', 0)
-            base_carbs = nutrition_data.get('carbs_g_per_serving', 0)
-            base_fat = nutrition_data.get('fat_g_per_serving', 0)
-            serving_size_g = nutrition_data.get('serving_size_g', 100)
-            search_confidence = nutrition_data.get('confidence', 0.7)
-
-            # Convert quantity to grams for calculation
-            quantity_g = self._convert_to_grams(quantity, unit, serving_size_g)
-
-            # Scale nutrition by quantity
-            scale_factor = quantity_g / serving_size_g
-            calories = base_calories * scale_factor
-            protein = base_protein * scale_factor
-            carbs = base_carbs * scale_factor
-            fat = base_fat * scale_factor
-
-            # Overall confidence combines parsing and search confidence
-            overall_confidence = min(parse_confidence * search_confidence, 1.0)
+            logger.info(f"Using reference data for: {food_description}")
 
             return NutritionItem(
-                food_name=nutrition_data.get('food_name', food_description),
-                calories=calories,
-                protein_g=protein,
-                carbs_g=carbs,
-                fat_g=fat,
-                confidence=overall_confidence,
-                source="web_search"
+                food_name=reference_result['food_name'],
+                calories=reference_result['calories'],
+                protein_g=reference_result['protein_g'],
+                carbs_g=reference_result['carbs_g'],
+                fat_g=reference_result['fat_g'],
+                confidence=reference_result['confidence'] * parse_confidence,
+                source="reference_db"
             )
 
         except Exception as e:
             logger.error(f"Item nutrition calculation failed: {e}")
             return None
-
-    def _parse_search_results(self, search_data: Dict[str, Any], food_name: str) -> Optional[Dict[str, Any]]:
-        """
-        Parse web search results to extract nutrition information.
-
-        Args:
-            search_data: Raw search results
-            food_name: Name of the food item
-
-        Returns:
-            Dict with parsed nutrition data or None
-        """
-        try:
-            # Extract text from search results
-            search_text = ""
-            if 'results' in search_data:
-                for result in search_data['results'][:3]:  # Use top 3 results
-                    if 'content' in result:
-                        search_text += result['content'] + " "
-                    elif 'snippet' in result:
-                        search_text += result['snippet'] + " "
-
-            if not search_text:
-                return None
-
-            # Use regex to extract nutrition facts
-            # Look for patterns like "Calories: 250", "Protein: 15g", etc.
-            calories_match = re.search(r'calories?\s*:\s*(\d+)', search_text, re.IGNORECASE)
-            protein_match = re.search(r'protein\s*:\s*(\d+(?:\.\d+)?)\s*g', search_text, re.IGNORECASE)
-            carbs_match = re.search(r'(?:carbs?|carbohydrates?)\s*:\s*(\d+(?:\.\d+)?)\s*g', search_text, re.IGNORECASE)
-            fat_match = re.search(r'fat\s*:\s*(\d+(?:\.\d+)?)\s*g', search_text, re.IGNORECASE)
-
-            # Extract serving size if available
-            serving_match = re.search(r'serving\s*size\s*:\s*(\d+(?:\.\d+)?)\s*g', search_text, re.IGNORECASE)
-            serving_size_g = float(serving_match.group(1)) if serving_match else 100.0
-
-            nutrition_data = {
-                'food_name': food_name,
-                'serving_size_g': serving_size_g,
-                'calories_per_serving': float(calories_match.group(1)) if calories_match else 0,
-                'protein_g_per_serving': float(protein_match.group(1)) if protein_match else 0,
-                'carbs_g_per_serving': float(carbs_match.group(1)) if carbs_match else 0,
-                'fat_g_per_serving': float(fat_match.group(1)) if fat_match else 0,
-                'confidence': 0.6  # Lower confidence for web search
-            }
-
-            # If we found at least calories, consider it valid
-            if nutrition_data['calories_per_serving'] > 0:
-                return nutrition_data
-
-            return None
-
-        except Exception as e:
-            logger.error(f"Failed to parse search results: {e}")
-            return None
-
-    def _convert_to_grams(self, quantity: float, unit: str, serving_size_g: float) -> float:
-        """
-        Convert quantity and unit to grams.
-
-        Args:
-            quantity: Parsed quantity
-            unit: Parsed unit
-            serving_size_g: Base serving size in grams
-
-        Returns:
-            Quantity in grams
-        """
-        # Unit conversion factors (approximate)
-        conversions = {
-            'cup': 240,  # 1 cup ≈ 240g for most foods
-            'tablespoon': 15,
-            'teaspoon': 5,
-            'pound': 453.6,
-            'ounce': 28.35,
-            'gram': 1,
-            'kilogram': 1000,
-            'liter': 1000,
-            'milliliter': 1,
-            'piece': serving_size_g,  # Use serving size for pieces
-            'slice': serving_size_g * 0.3,  # Assume slice is 30% of serving
-            'whole': serving_size_g,
-            'half': serving_size_g * 0.5,
-            'quarter': serving_size_g * 0.25
-        }
-
-        unit_lower = unit.lower()
-        if unit_lower in conversions:
-            return quantity * conversions[unit_lower]
-        else:
-            # Unknown unit, assume it's equivalent to serving size
-            logger.warning(f"Unknown unit '{unit}', using serving size")
-            return quantity * serving_size_g
 
 
 # Create singleton instance

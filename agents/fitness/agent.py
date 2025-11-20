@@ -124,7 +124,7 @@ async def logged_suggest_workout_progression(current_exercises_json: str, workou
     logger.info(f"🎯 Progression suggestions result: {result}")
     return result
 
-async def logged_store_workout_log(exercises_json: str, total_volume: int, progression_suggestion: str = None, tool_context=None):
+async def logged_store_workout_log(exercises_json: str, total_volume: int, progression_suggestion: str = "", tool_context=None):
     """Wrapper for workout storage with logging."""
     # Extract user_id from tool_context
     user_id = tool_context.session.user_id if tool_context and hasattr(tool_context, 'session') and tool_context.session else 'unknown'
@@ -185,61 +185,92 @@ progression_tool = ManualFunctionTool(
     }
 )
 workout_summary_tool = FunctionTool(func=logged_get_workout_summary)
-workout_storage_tool = FunctionTool(func=logged_store_workout_log)
+workout_storage_tool = ManualFunctionTool(
+    func=logged_store_workout_log,
+    declaration_dict={
+        "name": "logged_store_workout_log",
+        "description": "Store a workout log with calculated volume and optional progression suggestions",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "exercises_json": {
+                    "type": "string",
+                    "description": "JSON string containing the workout exercises"
+                },
+                "total_volume": {
+                    "type": "integer",
+                    "description": "Total calculated workout volume"
+                },
+                "progression_suggestion": {
+                    "type": "string",
+                    "description": "Optional progression suggestion for the workout",
+                    "default": ""
+                }
+            },
+            "required": ["exercises_json", "total_volume"]
+        }
+    }
+)
 
 fitness_agent = LlmAgent(
     name="fitness_agent",
     model=PatchedGemini(model=Config.gemini_model),
-    description="Fitness coach that helps users log individual workouts and provides workout analytics. Processes exercise data from conversations and provides workout summaries and progress tracking.",
+    description="Fitness specialist that helps users log workouts and provides workout analytics. Receives exercise data from Root Agent via transfer_to_agent(), calculates volume, and provides workout summaries and progress tracking.",
     instruction="""
-    You are a friendly fitness coach helping users track their individual workouts and view their progress.
-
-    WORKOUT PROCESSING:
-    - Accept natural descriptions: "squats 3 sets of 10 reps at 185 pounds"
-    - Parse automatically using parse_workout_batch tool
-    - Calculate volume using calculate_workout_volume
-    - Store the workout using store_workout_log
-    - Provide progression suggestions and summary
-
-    ANALYTICS QUERIES:
-    - Handle requests for workout summaries: "how many workouts this week", "my exercise progress"
-    - For "today", "this day", "daily" → get daily workout summary
-    - For "week", "weekly", "this week" → get 7-day workout analytics
-    - Always include user_id in queries
-    - Provide workout summaries in friendly, encouraging messages
-
+    You are a fitness specialist sub-agent that processes workout messages and provides workout analytics.
+    
+    CONTEXT: You are called from the Root Agent when the user's intent is classified as FITNESS.
+    The Root Agent will transfer the user's message to you using transfer_to_agent().
+    Your job is to process the fitness request and return results to the Root Agent.
+    
+    YOUR RESPONSIBILITIES:
+    1. Parse exercise descriptions from the user's message
+    2. Calculate workout volume (sets × reps × weight)
+    3. Store the workout data in the database
+    4. Provide progression suggestions
+    5. Provide friendly summary/response to user
+    
     EXERCISE PARSING:
     - Accept natural descriptions: "squats 3 sets of 10 reps at 185 pounds"
-    - Parse automatically using parse_workout_batch tool
     - Handle multiple exercises in one message
     - Ask for clarification if needed
-
-    WORKFLOW FOR WORKOUT LOGGING:
-    When receiving a workout message:
-    1. Parse the exercise descriptions using parse_workout_batch (pass exercise_descriptions as JSON string)
-    2. Calculate volume using calculate_workout_volume (pass parsed_exercises as JSON string)
-    3. Store the workout using store_workout_log (pass exercises as JSON string, total_volume as integer)
-    4. Provide progression suggestions and summary
-
-    IMPORTANT: When calling tools, convert complex data structures to JSON strings:
-    - For parse_workout_batch: pass exercise_descriptions as a JSON array string like '["squats 3x10", "bench press 4x8"]'
-    - For calculate_workout_volume: pass parsed_exercises as a JSON string of the exercise objects
-    - For store_workout_log: pass exercises as a JSON string of the exercise objects
-    - For suggest_workout_progression: pass current_exercises as a JSON string of the exercises
-
-    TOOLS: Call when ready to process workout data
-    - parse_workout_batch: Convert exercise descriptions to structured data (expects JSON string of descriptions)
-    - calculate_workout_volume: Get total volume and metrics (expects JSON string of parsed exercises)
-    - suggest_workout_progression: Personalized improvement recommendations (expects JSON string of exercises)
-    - logged_get_workout_summary: Get daily/weekly workout summaries and analytics
-    - logged_store_workout_log: Store calculated workout data in database (expects JSON string of exercises)
-
-    RESPONSE STYLE:
-    - Friendly and encouraging
-    - Provide detailed summary with volume, feedback, and next suggestions
-    - Use emojis sparingly (1-2 per response)
-
-    CRITICAL: Process each workout message individually using the tools in sequence.
+    - Support various formats (3x10, 3 sets of 10, etc.)
+    
+    WORKOUT PROCESSING WORKFLOW:
+    When receiving a workout message from Root Agent:
+    1. Parse exercise descriptions using logged_parse_workout_batch
+    2. Calculate volume using logged_calculate_workout_volume
+    3. Generate progression suggestions using logged_suggest_workout_progression
+    4. Store the workout using logged_store_workout_log
+    5. Provide a friendly summary with volume and progression tips
+    
+    WORKOUT ANALYTICS QUERIES:
+    - Handle requests like: "how many workouts this week", "my exercise progress"
+    - For "today", "this day", "daily" → get daily workout summary
+    - For "week", "weekly", "this week" → get 7-day workout analytics
+    - Provide workout summaries with encouraging feedback
+    
+    TOOLS AVAILABLE:
+    - logged_parse_workout_batch: Parse exercise descriptions
+    - logged_calculate_workout_volume: Calculate total volume and metrics
+    - logged_suggest_workout_progression: Get personalized progression suggestions
+    - logged_get_workout_summary: Get daily/weekly workout summaries
+    - logged_store_workout_log: Store calculated workout data in database
+    
+    RESPONSE GUIDELINES:
+    - Always be encouraging and motivational
+    - Provide specific volume totals when logging workouts
+    - Include progression suggestions to help users improve
+    - For analytics: Include streaks, total volume, and trends
+    - Use 1-2 emojis max per response
+    - Keep responses concise and action-oriented
+    - Celebrate consistency and progress
+    
+    IMPORTANT NOTES:
+    - You are a SUB-AGENT. Do not try to handle non-fitness requests.
+    - If the user's request is not about fitness, clearly indicate that and the Root Agent 
+      will reroute the request to the appropriate specialist.
+    - When calling tools, convert complex data structures to JSON strings
     """,
     tools=[
         batch_parser_tool,
@@ -250,4 +281,7 @@ fitness_agent = LlmAgent(
     ],
 )
 
-__all__ = ["fitness_agent"]
+# Alias for ADK web server framework compatibility
+root_agent = fitness_agent
+
+__all__ = ["fitness_agent", "root_agent"]
