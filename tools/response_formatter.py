@@ -52,6 +52,45 @@ async def format_response(
 
             formatted_response += "Keep up the great work! 💪"
 
+        elif response_type == "nutrition_analytics":
+            # Format nutrition analytics response (daily/weekly summaries)
+            date_str = content.get("date", "")
+            total_calories = content.get("total_calories", 0)
+            total_protein = content.get("total_protein_g", 0)
+            meals_logged = content.get("meals_logged", 0)
+            
+            # Handle weekly analytics
+            if "period_days" in content:
+                period_days = content.get("period_days", 7)
+                avg_calories = content.get("avg_daily_calories", 0)
+                avg_protein = content.get("avg_daily_protein", 0)
+                total_meals = content.get("total_meals", 0)
+                
+                formatted_response = f"📊 **Weekly Nutrition Summary**\n\n"
+                formatted_response += f"**Period:** Last {period_days} days\n"
+                formatted_response += f"**Total Meals:** {total_meals}\n"
+                formatted_response += f"**Daily Average:**\n"
+                formatted_response += f"• Calories: {avg_calories} kcal\n"
+                formatted_response += f"• Protein: {avg_protein}g\n\n"
+                
+                if avg_calories > 0:
+                    formatted_response += "Great progress! Keep tracking your meals! 💪"
+                else:
+                    formatted_response += "No meals logged this week yet. Let's get started! 🍎"
+            else:
+                # Daily summary
+                formatted_response = f"📊 **Daily Nutrition Summary**\n\n"
+                formatted_response += f"**Date:** {date_str}\n"
+                formatted_response += f"**Meals Logged:** {meals_logged}\n"
+                formatted_response += f"**Total:**\n"
+                formatted_response += f"• Calories: {total_calories} kcal\n"
+                formatted_response += f"• Protein: {total_protein}g\n\n"
+                
+                if total_calories > 0:
+                    formatted_response += "You're doing great! Keep up the good work! 💪"
+                else:
+                    formatted_response += "No meals logged today yet. What have you eaten? 🍽️"
+
         elif response_type == "batch_collection":
             # Format batch collection prompt
             item_count = content.get("current_count", 0)

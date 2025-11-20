@@ -16,7 +16,7 @@ Key features:
 import asyncio
 import logging
 from typing import Dict, Any, Optional, Callable
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 from telegram import Update, BotCommand, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import (
@@ -26,9 +26,10 @@ from telegram.ext import (
 from telegram.error import TimedOut, NetworkError
 
 from config.settings import settings
-from database.init import get_db_session
+from database.init import get_db_session, init_database
 from database.models import SessionState, UserProfile, MealLog, WorkoutLog, WellnessLog
 
+from agents.onboarding_agent import onboarding_agent
 from adk_integration import process_agent_message, initialize_agent_runner, shutdown_agent_runner
 
 logger = logging.getLogger(__name__)
@@ -86,10 +87,24 @@ class TelegramBot:
         """Initialize the bot application with handlers."""
         logger.info("Initializing Telegram bot...")
 
-        # Initialize ADK agent runner first
+        # Initialize database with schema
+        try:
+            if init_database():
+                logger.info("✅ Database initialized successfully")
+            else:
+                logger.error("❌ Failed to initialize database")
+                raise RuntimeError("Database initialization failed")
+        except Exception as e:
+            logger.error(f"❌ Database initialization error: {e}")
+            raise
+
+        # Initialize ADK agent runner (if available)
         try:
             asyncio.run(initialize_agent_runner())
-            logger.info("ADK agent runner initialized")
+            logger.info("✅ ADK agent runner initialized")
+        except ImportError as e:
+            logger.warning(f"⚠️  ADK not available: {e}")
+            logger.warning("Bot will run without agent features until google.adk is installed")
         except Exception as e:
             logger.error(f"Failed to initialize ADK runner: {e}")
             raise
@@ -186,53 +201,26 @@ class TelegramBot:
                     )
                     await update.message.reply_text(message)
                 else:
-                    # New user - route to onboarding agent
-                    if self.agent_router:
-                        logger.info("Routing new user to onboarding agent")
-                        try:
-                            # Set typing indicator
-                            await update.message.chat.send_action("typing")
+                    # New user - use onboarding agent directly
+                    logger.info("Starting onboarding for new user")
+                    try:
+                        # Set typing indicator
+                        await update.message.chat.send_action("typing")
 
-                            # Process with timeout
-                            response = await asyncio.wait_for(
-                                self.agent_router(user_id, "/start", context),
-                                timeout=settings.bot_response_timeout
-                            )
+                        # Process with onboarding agent
+                        response = await onboarding_agent.process_message(user_id, "/start", context)
 
-                            # Send response
-                            if isinstance(response, dict) and 'text' in response:
-                                reply_text = response['text']
-                                reply_markup = response.get('keyboard')
+                        # Send response
+                        reply_text = response.text
+                        await update.message.reply_text(reply_text)
 
-                                if reply_markup:
-                                    await update.message.reply_text(reply_text, reply_markup=reply_markup)
-                                else:
-                                    await update.message.reply_text(reply_text)
-                            else:
-                                await update.message.reply_text(str(response))
+                        logger.info("✅ Onboarding start response sent successfully")
 
-                            logger.info("✅ Onboarding start response sent successfully")
-
-                        except asyncio.TimeoutError:
-                            logger.warning("Onboarding start timeout")
-                            await update.message.reply_text(
-                                "⏰ I'm taking too long to respond. Please try again."
-                            )
-                        except Exception as e:
-                            logger.error(f"Error starting onboarding: {e}", exc_info=True)
-                            await update.message.reply_text(
-                                "❌ Sorry, I encountered an error. Please try again."
-                            )
-                    else:
-                        # Fallback if no agent router
-                        message = (
-                            f"Hello {user.first_name}! 👋 Welcome to your personal weight loss assistant!\n\n"
-                            "I'm here to help you track your nutrition, fitness, and wellness "
-                            "to achieve your weight loss goals.\n\n"
-                            "To get started, I need to know a bit about you. "
-                            "What's your age?"
+                    except Exception as e:
+                        logger.error(f"Error starting onboarding: {e}", exc_info=True)
+                        await update.message.reply_text(
+                            "❌ Sorry, I encountered an error. Please try again."
                         )
-                        await update.message.reply_text(message)
 
         except Exception as e:
             logger.error(f"❌ Error in /start handler: {e}", exc_info=True)
@@ -280,8 +268,8 @@ class TelegramBot:
                 )
                 return
 
-            # Get recent activity counts
-            today = datetime.utcnow().date()
+            # Get recent activity counts and details
+            today = date.today()
 
             meal_count = session.query(MealLog).filter(
                 MealLog.user_id == user_id,
@@ -298,6 +286,15 @@ class TelegramBot:
                 WellnessLog.log_date == today
             ).count()
 
+            # Get today's workout details
+            today_workouts = session.query(WorkoutLog).filter(
+                WorkoutLog.user_id == user_id,
+                WorkoutLog.log_date == today
+            ).all()
+
+            total_volume = sum(workout.total_volume for workout in today_workouts)
+            total_exercises = sum(len(workout.exercises_list) if workout.exercises_list else 0 for workout in today_workouts)
+
             status_text = (
                 f"📊 Your Status Today\n\n"
                 f"🎯 Goal: {profile.daily_calorie_goal} calories\n"
@@ -306,9 +303,31 @@ class TelegramBot:
                 f"Today's Activity:\n"
                 f"🍽️ Meals logged: {meal_count}\n"
                 f"💪 Workouts: {workout_count}\n"
+                f"🏋️ Total volume: {total_volume:,} lbs\n"
+                f"🎯 Exercises completed: {total_exercises}\n"
                 f"😴 Wellness entries: {wellness_count}\n\n"
-                "Keep up the great work! 💪"
             )
+
+            # Add workout details if any workouts were logged
+            if today_workouts:
+                status_text += "Today's Workouts:\n"
+                for i, workout in enumerate(today_workouts, 1):
+                    status_text += f"• Workout {i}: {workout.total_volume:,} lbs volume\n"
+                    if workout.exercises_list:
+                        for exercise in workout.exercises_list[:3]:  # Show up to 3 exercises per workout
+                            ex_name = exercise.get('name', 'Unknown')
+                            sets = exercise.get('sets', 0)
+                            reps = exercise.get('reps', 0)
+                            weight = exercise.get('weight', 0)
+                            status_text += f"  - {ex_name}: {sets}×{reps}"
+                            if weight:
+                                status_text += f"@{weight}lbs"
+                            status_text += "\n"
+                        if len(workout.exercises_list) > 3:
+                            status_text += f"  ... and {len(workout.exercises_list) - 3} more\n"
+                status_text += "\n"
+
+            status_text += "Keep up the great work! 💪"
 
         await update.message.reply_text(status_text)
 
@@ -381,50 +400,77 @@ class TelegramBot:
 
         logger.info(f"Message from user {user_id}: {text[:100]}...")
 
-        # Route to agent framework
-        if self.agent_router:
-            logger.info("Routing to agent framework")
+        # Check if user has completed profile
+        with get_db_session() as session:
+            profile = session.query(UserProfile).filter_by(user_id=user_id).first()
+            is_onboarding = profile is None
+
+        if is_onboarding:
+            # User is in onboarding - use onboarding agent
+            logger.info("User in onboarding - routing to onboarding agent")
             try:
                 # Set typing indicator
                 await update.message.chat.send_action("typing")
 
-                # Process with timeout
-                response = await asyncio.wait_for(
-                    self.agent_router(user_id, text, context),
-                    timeout=settings.bot_response_timeout
-                )
+                # Process with onboarding agent
+                response = await onboarding_agent.process_message(user_id, text, context)
 
                 # Send response
-                if isinstance(response, dict) and 'text' in response:
-                    reply_text = response['text']
-                    reply_markup = response.get('keyboard')
+                reply_text = response.text
+                await message.reply_text(reply_text)
 
-                    if reply_markup:
-                        await message.reply_text(reply_text, reply_markup=reply_markup)
-                    else:
-                        await message.reply_text(reply_text)
-                else:
-                    await message.reply_text(str(response))
+                logger.info("✅ Onboarding message response sent successfully")
 
-                logger.info("✅ Agent response sent successfully")
-
-            except asyncio.TimeoutError:
-                logger.warning("Agent response timeout")
-                await message.reply_text(
-                    "⏰ I'm taking too long to respond. Please try again."
-                )
             except Exception as e:
-                logger.error(f"Error processing message: {e}", exc_info=True)
+                logger.error(f"Error processing onboarding message: {e}", exc_info=True)
                 await message.reply_text(
                     "❌ Sorry, I encountered an error. Please try again."
                 )
         else:
-            logger.info("No agent router available, using fallback")
-            # Fallback response
-            await message.reply_text(
-                "🤖 I'm still learning! Please use /help to see what I can do."
-            )
-            logger.info("✅ Fallback response sent")
+            # User has profile - route to agent framework
+            if self.agent_router:
+                logger.info("Routing to agent framework")
+                try:
+                    # Set typing indicator
+                    await update.message.chat.send_action("typing")
+
+                    # Process with timeout
+                    response = await asyncio.wait_for(
+                        self.agent_router(user_id, text, context),
+                        timeout=settings.bot_response_timeout
+                    )
+
+                    # Send response
+                    if isinstance(response, dict) and 'text' in response:
+                        reply_text = response['text']
+                        reply_markup = response.get('keyboard')
+
+                        if reply_markup:
+                            await message.reply_text(reply_text, reply_markup=reply_markup)
+                        else:
+                            await message.reply_text(reply_text)
+                    else:
+                        await message.reply_text(str(response))
+
+                    logger.info("✅ Agent response sent successfully")
+
+                except asyncio.TimeoutError:
+                    logger.warning("Agent response timeout")
+                    await message.reply_text(
+                        "⏰ I'm taking too long to respond. Please try again."
+                    )
+                except Exception as e:
+                    logger.error(f"Error processing message: {e}", exc_info=True)
+                    await message.reply_text(
+                        "❌ Sorry, I encountered an error. Please try again."
+                    )
+            else:
+                logger.info("No agent router available, using fallback")
+                # Fallback response
+                await message.reply_text(
+                    "🤖 I'm still learning! Please use /help to see what I can do."
+                )
+                logger.info("✅ Fallback response sent")
 
     async def _handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle callback queries from inline keyboards."""

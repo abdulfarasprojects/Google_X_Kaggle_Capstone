@@ -18,15 +18,48 @@ import logging
 from typing import Dict, Any, Optional, AsyncGenerator
 from datetime import datetime
 
-from google.adk.runners import InMemoryRunner
-from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
-from agents.root.agent import root_agent
-from agents.nutrition.agent import nutrition_agent
 from config.logging import get_logger
+from config.settings import settings
 
 logger = get_logger(__name__)
+
+# Lazy-loaded globals
+_InMemoryRunner = None
+_InMemorySessionService = None
+_root_agent = None
+_nutrition_agent = None
+_ADK_LOADED = False
+
+
+def _lazy_load_adk() -> bool:
+    """Lazy load ADK components to avoid import-time hangs."""
+    global _InMemoryRunner, _InMemorySessionService, _root_agent, _nutrition_agent, _ADK_LOADED
+
+    if _ADK_LOADED:
+        return True
+
+    try:
+        logger.debug("Lazy-loading ADK components...")
+        from google.adk.runners import InMemoryRunner
+        from google.adk.sessions import InMemorySessionService
+        from agents.root.agent import root_agent
+        from agents.nutrition.agent import nutrition_agent
+
+        _InMemoryRunner = InMemoryRunner
+        _InMemorySessionService = InMemorySessionService
+        _root_agent = root_agent
+        _nutrition_agent = nutrition_agent
+        _ADK_LOADED = True
+        logger.debug("✅ ADK components loaded successfully")
+        return True
+
+    except Exception as e:
+        logger.error(f"❌ Failed to lazy-load ADK components: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return False
 
 
 class ADKAgentRunner:
@@ -40,7 +73,7 @@ class ADKAgentRunner:
     def __init__(self):
         """Initialize the ADK agent runner."""
         self.runner = None
-        self.session_service = InMemorySessionService()
+        self.session_service = None
         self._initialized = False
 
     async def initialize(self):
@@ -50,21 +83,64 @@ class ADKAgentRunner:
 
         logger.info("Initializing ADK Runner...")
 
+        if not _lazy_load_adk():
+            raise ImportError("Failed to load ADK components")
+
         try:
             # Create runner with root agent
-            self.runner = InMemoryRunner(
-                agent=root_agent,
+            self.session_service = _InMemorySessionService()
+            self.runner = _InMemoryRunner(
+                agent=_root_agent,
                 app_name="agents"  # Match the agent's directory
             )
 
-            # Initialize the runner context
-            async with self.runner:
-                logger.info("ADK Runner initialized successfully")
-                self._initialized = True
+            logger.info("✅ ADK Runner initialized successfully")
+            self._initialized = True
 
         except Exception as e:
-            logger.error(f"Failed to initialize ADK Runner: {e}")
+            logger.error(f"❌ Failed to initialize ADK Runner: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             raise
+
+    def _classify_intent(self, message: str) -> str:
+        """Classify user message intent based on keywords."""
+        message_lower = message.lower()
+        
+        # Nutrition keywords
+        if any(word in message_lower for word in ['ate', 'food', 'meal', 'breakfast', 'lunch', 'dinner', 'snack', 'calories', 'protein', 'hungry']):
+            return 'nutrition'
+        
+        # Fitness keywords
+        if any(word in message_lower for word in ['workout', 'exercise', 'gym', 'lift', 'run', 'cardio', 'sets', 'reps', 'weight', 'strength']):
+            return 'fitness'
+        
+        # Wellness keywords
+        if any(word in message_lower for word in ['sleep', 'water', 'steps', 'wellness', 'tired', 'rest', 'drink', 'walk']):
+            return 'wellness'
+        
+        # Analytics keywords
+        if any(word in message_lower for word in ['progress', 'stats', 'summary', 'report', 'trend', 'weekly', 'daily']):
+            return 'analytics'
+        
+        # Default to root
+        return 'root'
+    
+    def _get_agent_for_intent(self, intent: str):
+        """Get the appropriate agent for the given intent."""
+        if intent == 'nutrition':
+            return _nutrition_agent
+        elif intent == 'fitness':
+            from agents.fitness.agent import fitness_agent
+            return fitness_agent
+        elif intent == 'wellness':
+            from agents.wellness.agent import wellness_agent
+            return wellness_agent
+        elif intent == 'analytics':
+            from agents.analytics.agent import analytics_agent
+            return analytics_agent
+        else:
+            return _root_agent
 
     async def process_message(
         self,
@@ -93,19 +169,31 @@ class ADKAgentRunner:
             session_id = f"session_{user_id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
 
         logger.info(f"Processing message for user {user_id}, session {session_id}: {message[:100]}...")
+        
+        # Classify intent and route to appropriate agent
+        intent = self._classify_intent(message)
+        logger.info(f"📌 Classified intent: {intent}")
+        
+        # Get agent for this intent
+        target_agent = self._get_agent_for_intent(intent)
+        logger.info(f"🎯 Using agent: {target_agent.name if hasattr(target_agent, 'name') else 'unknown'}")
 
         try:
-            logger.info(f"📤 Sending message to ADK agent: {message}")
+            logger.info(f"📤 Sending message to agent: {message}")
 
-            # Use run_debug for simpler testing (handles session management automatically)
-            events = await self.runner.run_debug(
+            # Create a runner for the specific agent
+            runner = _InMemoryRunner(
+                agent=target_agent,
+                app_name="agents"
+            )
+            
+            # Use run_debug to execute the agent
+            events = await runner.run_debug(
                 user_messages=[message],
                 user_id=user_id,
                 session_id=session_id,
                 verbose=True
             )
-
-            logger.info(f"� Total events received: {len(events)}")
 
             logger.info(f"📊 Total events received: {len(events)}")
 
@@ -114,29 +202,29 @@ class ADKAgentRunner:
             keyboard = None
 
             for event in events:
-                logger.debug(f"🔍 Processing event: {event}")
+                logger.debug(f"🔍 Processing event type: {type(event).__name__}")
 
-                if hasattr(event, 'content') and event.content:
+                if hasattr(event, 'content') and event.content and event.content.parts:
                     # Extract text from content
                     for part in event.content.parts:
-                        if hasattr(part, 'text'):
+                        if hasattr(part, 'text') and part.text is not None:
                             response_text += part.text
-                            logger.info(f"💬 Extracted text from event: {part.text[:100]}...")
+                            logger.info(f"💬 Extracted text: {part.text[:100]}...")
 
                 # Handle tool calls and other events
                 if hasattr(event, 'tool_call') and event.tool_call:
                     logger.info(f"🔧 Tool call detected: {event.tool_call}")
 
-                # Handle function calls (for nutrition agent)
+                # Handle function calls
                 if hasattr(event, 'function_call') and event.function_call:
                     logger.info(f"⚙️ Function call detected: {event.function_call}")
 
             # If no response text, provide fallback
             if not response_text.strip():
-                logger.warning("⚠️ No response text generated by agent, using fallback")
+                logger.warning("⚠️ No response text generated, using fallback")
                 response_text = "I processed your message but don't have a specific response. How can I help you with your weight loss journey?"
 
-            logger.info(f"✅ Agent response generated: {response_text[:200]}...")
+            logger.info(f"✅ Response generated: {response_text[:200]}...")
 
             return {
                 'text': response_text,
@@ -145,9 +233,9 @@ class ADKAgentRunner:
             }
 
         except Exception as e:
-            logger.error(f"Error processing message with ADK agent: {e}", exc_info=True)
+            logger.error(f"❌ Error processing message: {e}", exc_info=True)
             return {
-                'text': "❌ Sorry, I encountered an error processing your message. Please try again.",
+                'text': "❌ Sorry, I encountered an error. Please try again.",
                 'session_id': session_id
             }
 

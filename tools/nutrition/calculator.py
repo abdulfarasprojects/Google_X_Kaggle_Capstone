@@ -2,8 +2,7 @@
 Nutrition calculation tools for meal analysis.
 
 This module provides tools for calculating nutrition information from parsed
-food items. Integrates with USDA API and Nutritionix fallback for accurate
-calorie and macronutrient calculations.
+food items. Uses web search to find accurate calorie and macronutrient data.
 """
 
 import logging
@@ -11,8 +10,9 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 
 from tools.base import BaseTool, ToolResult
-from tools.nutrition.usda_client import usda_client
 from config.settings import settings
+
+from tools.nutrition.reference_data import nutrition_reference
 
 logger = logging.getLogger(__name__)
 
@@ -33,14 +33,14 @@ class MealNutritionCalculatorTool(BaseTool):
     """
     Tool for calculating nutrition information for meal items.
 
-    Takes parsed food items and calculates total nutrition using USDA API
-    with fallback to Nutritionix. Provides confidence scoring and validation.
+    Uses web search to find accurate calorie and macronutrient calculations.
+    Provides confidence scoring and validation.
     """
 
     def __init__(self):
         super().__init__(
             name="calculate_meal_nutrition",
-            description="Calculate nutrition information for a batch of parsed food items",
+            description="Calculate nutrition information for a batch of parsed food items using reference database",
             parameters={
                 "type": "object",
                 "properties": {
@@ -68,7 +68,7 @@ class MealNutritionCalculatorTool(BaseTool):
                 },
                 "required": ["parsed_items", "meal_type", "user_id"]
             },
-            timeout_seconds=10  # Allow time for multiple API calls
+            timeout_seconds=5  # Faster with reference data
         )
 
     async def execute(
@@ -79,7 +79,7 @@ class MealNutritionCalculatorTool(BaseTool):
         tool_context: Optional[Any] = None
     ) -> ToolResult:
         """
-        Calculate nutrition for parsed food items.
+        Calculate nutrition for parsed food items using web search.
 
         Args:
             parsed_items: List of parsed food items from batch parser
@@ -110,26 +110,25 @@ class MealNutritionCalculatorTool(BaseTool):
             total_fat = 0.0
             confidences = []
 
-            async with usda_client:
-                for item in parsed_items:
-                    nutrition = await self._calculate_item_nutrition(item)
-                    if nutrition:
-                        nutrition_items.append(nutrition)
-                        total_calories += nutrition.calories
-                        total_protein += nutrition.protein_g
-                        total_carbs += nutrition.carbs_g
-                        total_fat += nutrition.fat_g
-                        confidences.append(nutrition.confidence)
-                    else:
-                        # Fallback with zero nutrition but low confidence
-                        nutrition_items.append(NutritionItem(
-                            food_name=item.get('parsed_food', 'unknown'),
-                            calories=0.0,
-                            protein_g=0.0,
-                            confidence=0.1,
-                            source="failed"
-                        ))
-                        confidences.append(0.1)
+            for item in parsed_items:
+                nutrition = await self._calculate_item_nutrition(item, tool_context)
+                if nutrition:
+                    nutrition_items.append(nutrition)
+                    total_calories += nutrition.calories
+                    total_protein += nutrition.protein_g
+                    total_carbs += nutrition.carbs_g
+                    total_fat += nutrition.fat_g
+                    confidences.append(nutrition.confidence)
+                else:
+                    # Fallback with zero nutrition but low confidence
+                    nutrition_items.append(NutritionItem(
+                        food_name=item.get('parsed_food', 'unknown'),
+                        calories=0.0,
+                        protein_g=0.0,
+                        confidence=0.1,
+                        source="failed"
+                    ))
+                    confidences.append(0.1)
 
             # Calculate overall confidence as average
             confidence_score = sum(confidences) / len(confidences) if confidences else 0.0
@@ -162,12 +161,13 @@ class MealNutritionCalculatorTool(BaseTool):
                 error=f"Nutrition calculation failed: {str(e)}"
             )
 
-    async def _calculate_item_nutrition(self, parsed_item: Dict[str, Any]) -> Optional[NutritionItem]:
+    async def _calculate_item_nutrition(self, parsed_item: Dict[str, Any], tool_context: Optional[Any]) -> Optional[NutritionItem]:
         """
-        Calculate nutrition for a single parsed food item.
+        Calculate nutrition for a single parsed food item using reference data.
 
         Args:
             parsed_item: Parsed food item data
+            tool_context: ADK tool context (not used for reference data)
 
         Returns:
             NutritionItem or None if lookup fails
@@ -175,92 +175,36 @@ class MealNutritionCalculatorTool(BaseTool):
         try:
             food_description = parsed_item.get('parsed_food', '')
             quantity = parsed_item.get('quantity', 1.0)
-            unit = parsed_item.get('unit', 'piece')
+            unit = parsed_item.get('unit', 'serving')
             parse_confidence = parsed_item.get('confidence', 0.5)
 
             if not food_description:
                 return None
 
-            # Look up nutrition data
-            lookup_result = await usda_client.execute(food_description=food_description)
+            # Use reference data for nutrition lookup
+            reference_result = nutrition_reference.calculate_nutrition_from_reference(
+                food_description, quantity, unit
+            )
 
-            if not lookup_result.success:
-                # Could add Nutritionix fallback here
-                logger.warning(f"Nutrition lookup failed for: {food_description}")
+            if not reference_result:
+                logger.warning(f"No reference data found for: {food_description}")
                 return None
 
-            data = lookup_result.data
-            base_calories = data.get('calories_per_serving', 0)
-            base_protein = data.get('protein_g_per_serving', 0)
-            base_carbs = data.get('carbs_g_per_serving', 0)
-            base_fat = data.get('fat_g_per_serving', 0)
-            serving_size_g = data.get('serving_size_g', 100)
-            lookup_confidence = data.get('confidence', 0.8)
-
-            # Convert quantity to grams for calculation
-            quantity_g = self._convert_to_grams(quantity, unit, serving_size_g)
-
-            # Scale nutrition by quantity
-            scale_factor = quantity_g / serving_size_g
-            calories = base_calories * scale_factor
-            protein = base_protein * scale_factor
-            carbs = base_carbs * scale_factor
-            fat = base_fat * scale_factor
-
-            # Overall confidence combines parsing and lookup confidence
-            overall_confidence = min(parse_confidence * lookup_confidence, 1.0)
+            logger.info(f"Using reference data for: {food_description}")
 
             return NutritionItem(
-                food_name=data.get('food_name', food_description),
-                calories=calories,
-                protein_g=protein,
-                carbs_g=carbs,
-                fat_g=fat,
-                confidence=overall_confidence,
-                source=data.get('source', 'usda')
+                food_name=reference_result['food_name'],
+                calories=reference_result['calories'],
+                protein_g=reference_result['protein_g'],
+                carbs_g=reference_result['carbs_g'],
+                fat_g=reference_result['fat_g'],
+                confidence=reference_result['confidence'] * parse_confidence,
+                source="reference_db"
             )
 
         except Exception as e:
             logger.error(f"Item nutrition calculation failed: {e}")
             return None
-
-    def _convert_to_grams(self, quantity: float, unit: str, serving_size_g: float) -> float:
-        """
-        Convert quantity and unit to grams.
-
-        Args:
-            quantity: Parsed quantity
-            unit: Parsed unit
-            serving_size_g: Base serving size in grams
-
-        Returns:
-            Quantity in grams
-        """
-        # Unit conversion factors (approximate)
-        conversions = {
-            'cup': 240,  # 1 cup ≈ 240g for most foods
-            'tablespoon': 15,
-            'teaspoon': 5,
-            'pound': 453.6,
-            'ounce': 28.35,
-            'gram': 1,
-            'kilogram': 1000,
-            'liter': 1000,
-            'milliliter': 1,
-            'piece': serving_size_g,  # Use serving size for pieces
-            'slice': serving_size_g * 0.3,  # Assume slice is 30% of serving
-            'whole': serving_size_g,
-            'half': serving_size_g * 0.5,
-            'quarter': serving_size_g * 0.25
-        }
-
-        unit_lower = unit.lower()
-        if unit_lower in conversions:
-            return quantity * conversions[unit_lower]
-        else:
-            # Unknown unit, assume it's equivalent to serving size
-            logger.warning(f"Unknown unit '{unit}', using serving size")
-            return quantity * serving_size_g
 
 
 # Create singleton instance

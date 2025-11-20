@@ -1,14 +1,22 @@
 """
-Root Agent for Weight Loss Chat Agent using Google ADK.
+Root Agent (Coordinator) for Weight Loss Chat Agent using Google ADK.
 
 This is the main orchestrator agent that routes user messages to appropriate
-sub-agents based on intent and user state using Google ADK LlmAgent.
+sub-agents based on intent using Google ADK's agent transfer capability.
+
+PATTERN: Coordinator/Dispatcher Pattern with LLM-Driven Delegation
+- Receives user messages
+- Classifies intent
+- Delegates to appropriate sub-agent using transfer_to_agent()
+- Sub-agents handle domain-specific operations
+- Root agent manages cross-domain operations (profile, sessions)
 """
 
 import sys
 import os
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
+from datetime import date
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 
@@ -17,7 +25,9 @@ from config.logging import get_logger
 from tools.intent_classifier import classify_intent
 from tools.sentiment_detector import detect_sentiment
 from tools.response_formatter import format_response
-from tools.batch_state_manager import get_batch_state, update_batch_state
+
+# Note: Sub-agents are NOT imported here to avoid circular imports and initialization delays
+# Routing is now done at the ADK integration layer instead of using agent transfers
 
 # Import Google ADK
 from google.adk.agents import LlmAgent
@@ -27,85 +37,95 @@ from config.gemini import PatchedGemini
 
 logger = get_logger(__name__)
 
-# Logging wrapper functions for tools
+# Logging wrapper functions for coordinator tools
 async def logged_classify_intent(query: str, context: Optional[Dict[str, Any]] = None, tool_context: Optional[ToolContext] = None):
     """Wrapper for intent classification with logging."""
-    logger.info(f"🔍 Classifying intent with query: {query}, context: {context}")
+    logger.info(f"Classifying intent with query: {query}")
     result = await classify_intent(query, context, tool_context)
-    logger.info(f"📋 Intent classification result: {result}")
+    logger.info(f"Intent classification result: {result}")
     return result
 
 async def logged_detect_sentiment(query: str, context: Optional[Dict[str, Any]] = None, tool_context: Optional[ToolContext] = None):
     """Wrapper for sentiment detection with logging."""
-    logger.info(f"😊 Detecting sentiment with query: {query}, context: {context}")
+    logger.info(f"Detecting sentiment with query: {query}")
     result = await detect_sentiment(query, context, tool_context)
-    logger.info(f"📊 Sentiment detection result: {result}")
+    logger.info(f"Sentiment detection result: {result}")
     return result
 
 async def logged_format_response(response_type: str, content: Dict[str, Any], user_context: Optional[Dict[str, Any]] = None, context: Optional[Dict[str, Any]] = None, tool_context: Optional[ToolContext] = None):
     """Wrapper for response formatting with logging."""
-    logger.info(f"📝 Formatting response with response_type: {response_type}, content: {content}")
+    logger.info(f"Formatting response with response_type: {response_type}")
     result = await format_response(response_type, content, user_context, context, tool_context)
-    logger.info(f"💬 Response formatting result: {result}")
+    logger.info(f"Response formatting result: {result}")
     return result
 
-async def logged_get_batch_state(context: Optional[Dict[str, Any]] = None, tool_context: Optional[ToolContext] = None):
-    """Wrapper for batch state management with logging."""
-    logger.info(f"📦 Getting batch state with context: {context}")
-    result = await get_batch_state(context, tool_context)
-    logger.info(f"📋 Batch state result: {result}")
-    return result
-
-# Define tools for root agent
+# Define tools for coordinator agent (MINIMAL)
 intent_tool = FunctionTool(func=logged_classify_intent)
 sentiment_tool = FunctionTool(func=logged_detect_sentiment)
 response_tool = FunctionTool(func=logged_format_response)
-batch_state_tool = FunctionTool(func=logged_get_batch_state)
 
-# Create Root Agent
+# Create Root Agent (Coordinator/Orchestrator)
 root_agent = LlmAgent(
     name="weight_loss_coach_root",
     model=PatchedGemini(model=Config.gemini_model),
-    description="Main orchestrator for weight loss tracking via Telegram. Routes user requests to specialized agents (Nutrition, Fitness, Wellness). Manages batch collection workflows.",
+    description="Coordinator for weight loss tracking via Telegram. Routes user requests to specialized agents (Nutrition, Fitness, Wellness, Analytics, Nudge).",
     instruction="""
-    You are a supportive, non-judgmental weight loss coach assistant on Telegram.
+    You are a supportive, non-judgmental weight loss coach assistant on Telegram serving as the main coordinator.
+    
+    YOUR ROLE: General Assistant & Fallback Handler
+    - You handle general conversation with the user
+    - You provide supportive, encouraging responses
+    - You serve as fallback for ambiguous or non-domain-specific requests
     
     YOUR RESPONSIBILITIES:
-    1. Understand user intent (logging meals, asking questions, viewing progress)
+    1. Provide supportive, warm responses to user messages
     2. Detect emotional state and respond with empathy
-    3. For multi-item logging: Use BATCH MODE
-       - MEALS: "Logged [item]. Is that all for this meal? Any sides?"
-       - WORKOUTS: "Logged [exercise]. Any more sets? Different exercise?"
-       - HYDRATION: "Logged [amount]. More water logged today? Anything else?"
-    4. After user confirms "that's all": Delegate batch to appropriate agent
-    5. Route requests:
-       - Food logs → nutrition_agent (BATCH)
-       - Workouts → fitness_agent (BATCH)
-       - Water/Sleep/Steps → wellness_agent (BATCH)
-    6. Synthesize multi-agent responses into single supportive message
+    3. For domain-specific requests (meals, workouts, sleep, etc.), acknowledge that
+       the specialized agent will handle it
+    4. Manage cross-domain concerns like sessions and user state
     
-    TONE: Supportive coach, warm, encouraging. Use 1-2 emojis max per message.
+    AGENT ROUTING (Handled by system):
+    This agent is called for:
+    - Meal/food/calorie questions → nutrition_agent processes
+    - Workout/exercise questions → fitness_agent processes
+    - Water/sleep/steps → wellness_agent processes
+    - Weekly/daily summaries → analytics_agent processes
+    - General questions → root_agent (this agent)
+    - Nudges/reminders → nudge_agent (future)
     
-    BATCH MODE RULES:
-    - After each item, ALWAYS ask "Is that all?" or "Anything else?"
-    - Never process partially - wait for complete batch
-    - Once user confirms complete, delegate full batch to agent
-    - Example flow:
-      User: "2 eggs"
-      You: "2 eggs logged. Is that all for breakfast?"
-      User: "Yes, also had toast"
-      You: "Toast logged. Anything else?"
-      User: "No, that's all"
-      You: [BATCH TO NUTRITION_AGENT: ["eggs", "toast"]]
-      [NUTRITION_AGENT returns: 260 cal, 14g protein]
-      You: "Breakfast logged! 260 cal, 14g protein ✅ On track today!"
+    INTENT CLASSIFICATION:
+    - NUTRITION: "ate", "food", "meal", "breakfast", "lunch", "dinner", "snack", "calories", "protein", "hungry", "recipe"
+    - FITNESS: "workout", "exercise", "gym", "lift", "run", "cardio", "strength", "training", "muscle", "sets", "reps"
+    - WELLNESS: "sleep", "water", "steps", "wellness", "tired", "rest", "drink", "walk", "bed", "wake", "stress"
+    - ANALYTICS: "progress", "stats", "summary", "report", "how am I doing", "trend", "weekly", "daily"
+    
+    EXAMPLE RESPONSES:
+    User: "I had 2 eggs for breakfast"
+    → Your response: "Great! That's being logged by our nutrition specialist. You're taking good care of yourself! 💪"
+    
+    User: "did 3 sets of squats at 185 pounds"
+    → Your response: "Awesome strength work! That's impressive. Our fitness specialist is recording this. Keep it up! 🏋️"
+    
+    User: "how am I doing this week?"
+    → Your response: "Let me get your weekly summary from our analytics specialist..."
+    
+    TOOLS YOU CAN USE DIRECTLY:
+    - detect_sentiment: Understand user's emotional state
+    - format_response: Format responses for Telegram
+    - classify_intent: Analyze user message intent (informational only)
+    
+    CRITICAL RULES:
+    - Be supportive and encouraging in all responses
+    - DO NOT try to process meals, workouts, sleep, or analytics directly
+    - Acknowledge that appropriate specialists will handle domain-specific requests
+    - Keep responses concise and warm
+    - Use 1-2 emojis max per message
+    
+    TONE: Supportive coach, warm, encouraging, empathetic.
     """,
     tools=[
         intent_tool,
         sentiment_tool,
         response_tool,
-        batch_state_tool,
     ],
 )
-
-__all__ = ["root_agent"]

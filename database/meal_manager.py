@@ -8,6 +8,7 @@ creation, retrieval, updates, and analytics for nutrition data.
 import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime, date, timedelta
+import json
 from sqlalchemy.orm import Session
 
 from database.init import get_db_session
@@ -67,7 +68,7 @@ class MealManager:
                     log_id=log_id,
                     user_id=user_id,
                     meal_type=meal_type,
-                    food_items=food_items,
+                    food_items=json.dumps(food_items),  # Convert to JSON string
                     total_calories=total_calories,
                     total_protein_g=total_protein_g,
                     confidence_score=confidence_score,
@@ -286,37 +287,149 @@ class MealManager:
             return False
 
     @staticmethod
-    def delete_meal_log(log_id: str, user_id: str) -> bool:
+    def create_manual_calorie_entry(
+        user_id: str,
+        calories: float,
+        meal_type: Optional[str] = None,
+        food_description: Optional[str] = None,
+        confidence_level: str = "medium",
+        validation_warnings: Optional[List[str]] = None,
+        log_date: Optional[date] = None
+    ) -> Optional[str]:
         """
-        Delete a meal log.
+        Create a manual calorie entry with confidence flagging.
 
         Args:
-            log_id: Meal log identifier
-            user_id: User ID for ownership verification
+            user_id: User identifier
+            calories: Calorie amount
+            meal_type: Type of meal (optional)
+            food_description: Description of food consumed
+            confidence_level: Confidence level ('high', 'medium', 'low')
+            validation_warnings: List of validation warnings
+            log_date: Date of the entry (defaults to today)
 
         Returns:
-            True if successful, False otherwise
+            Log ID if successful, None if failed
         """
         try:
             with get_db_session() as session:
-                meal = session.query(MealLog).filter_by(
+                # Validate user exists
+                user = session.query(UserProfile).filter_by(user_id=user_id).first()
+                if not user:
+                    logger.error(f"User not found: {user_id}")
+                    return None
+
+                # Use provided date or today
+                entry_date = log_date or date.today()
+
+                # Generate unique log ID
+                log_id = f"manual_{user_id}_{datetime.utcnow().timestamp()}"
+
+                # Convert confidence level to numeric score
+                confidence_scores = {"high": 0.9, "medium": 0.7, "low": 0.5}
+                confidence_score = confidence_scores.get(confidence_level, 0.7)
+
+                # Create food item for manual entry
+                food_item = {
+                    "name": food_description or "Manual calorie entry",
+                    "calories": calories,
+                    "confidence": confidence_level,
+                    "warnings": validation_warnings or [],
+                    "entry_type": "manual"
+                }
+
+                # Estimate basic nutrition (rough estimates)
+                estimated_protein_g = calories * 0.25 / 4  # Assume 25% of calories from protein
+
+                # Create meal log with manual entry flag
+                meal_log = MealLog(
                     log_id=log_id,
-                    user_id=user_id
-                ).first()
+                    user_id=user_id,
+                    meal_type=meal_type or "manual_entry",
+                    total_calories=calories,
+                    total_protein_g=estimated_protein_g,
+                    confidence_score=confidence_score,
+                    log_date=entry_date
+                )
+                # Set food items using the property setter
+                meal_log.food_items_list = [food_item]
 
-                if not meal:
-                    logger.error(f"Meal log not found: {log_id}")
-                    return False
-
-                session.delete(meal)
+                session.add(meal_log)
                 session.commit()
 
-                logger.info(f"Deleted meal log: {log_id}")
-                return True
+                logger.info(f"Created manual calorie entry: {log_id} ({calories} cal, confidence: {confidence_level})")
+                return log_id
 
         except Exception as e:
-            logger.error(f"Failed to delete meal log: {e}")
-            return False
+            logger.error(f"Failed to create manual calorie entry: {e}")
+            return None
+    def get_manual_entries_with_confidence(
+        user_id: str,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+        min_confidence: Optional[float] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Get manual entries with confidence information.
+
+        Args:
+            user_id: User identifier
+            start_date: Start date filter
+            end_date: End date filter
+            min_confidence: Minimum confidence score filter
+
+        Returns:
+            List of manual entries with confidence data
+        """
+        try:
+            with get_db_session() as session:
+                query = session.query(MealLog).filter_by(user_id=user_id)
+
+                # Filter for manual entries (meal_type contains 'manual' or check food_items)
+                query = query.filter(MealLog.meal_type.like('%manual%'))
+
+                if start_date:
+                    query = query.filter(MealLog.log_date >= start_date)
+                if end_date:
+                    query = query.filter(MealLog.log_date <= end_date)
+                if min_confidence is not None:
+                    query = query.filter(MealLog.confidence_score >= min_confidence)
+
+                meals = query.order_by(MealLog.log_date.desc()).all()
+
+                result = []
+                for meal in meals:
+                    # Extract manual entry details from food_items
+                    manual_item = None
+                    if meal.food_items and len(meal.food_items) > 0:
+                        manual_item = meal.food_items[0]  # Assume first item for manual entries
+
+                    result.append({
+                        "log_id": meal.log_id,
+                        "date": meal.log_date.isoformat(),
+                        "calories": meal.total_calories,
+                        "confidence_score": meal.confidence_score,
+                        "confidence_level": _numeric_to_confidence_level(meal.confidence_score),
+                        "food_description": manual_item.get("name") if manual_item else None,
+                        "warnings": manual_item.get("warnings", []) if manual_item else [],
+                        "created_at": meal.created_at.isoformat()
+                    })
+
+                return result
+
+        except Exception as e:
+            logger.error(f"Failed to get manual entries: {e}")
+            return []
+
+
+def _numeric_to_confidence_level(score: float) -> str:
+    """Convert numeric confidence score to level."""
+    if score >= 0.8:
+        return "high"
+    elif score >= 0.6:
+        return "medium"
+    else:
+        return "low"
 
 
 # Create singleton instance
@@ -341,4 +454,22 @@ def log_meal(
         confidence_score=confidence_score
     )
 
-__all__ = ['MealManager', 'meal_manager', 'log_meal']
+def log_manual_calories(
+    user_id: str,
+    calories: float,
+    meal_type: Optional[str] = None,
+    food_description: Optional[str] = None,
+    confidence_level: str = "medium",
+    validation_warnings: Optional[List[str]] = None
+) -> Optional[str]:
+    """Convenience function to log manual calories with confidence flagging."""
+    return meal_manager.create_manual_calorie_entry(
+        user_id=user_id,
+        calories=calories,
+        meal_type=meal_type,
+        food_description=food_description,
+        confidence_level=confidence_level,
+        validation_warnings=validation_warnings
+    )
+
+__all__ = ['MealManager', 'meal_manager', 'log_meal', 'log_manual_calories']

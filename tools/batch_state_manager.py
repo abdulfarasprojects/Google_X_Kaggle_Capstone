@@ -70,18 +70,35 @@ async def update_batch_state(
     """
     try:
         if action == "start_batch":
-            meal_type = data.get("meal_type", "snack") if data else "snack"
-            _session_store[user_id] = {
-                "batch_type": "meal",
-                "meal_type": meal_type,
-                "batch_items": []
-            }
-            return {"success": True, "action": "started", "meal_type": meal_type}
+            batch_type = data.get("batch_type", "meal") if data else "meal"
+            if batch_type == "meal":
+                meal_type = data.get("meal_type", "snack") if data else "snack"
+                _session_store[user_id] = {
+                    "batch_type": "meal",
+                    "meal_type": meal_type,
+                    "batch_items": []
+                }
+                return {"success": True, "action": "started", "batch_type": "meal", "meal_type": meal_type}
+            elif batch_type == "workout":
+                _session_store[user_id] = {
+                    "batch_type": "workout",
+                    "batch_items": []
+                }
+                return {"success": True, "action": "started", "batch_type": "workout"}
+            elif batch_type == "wellness":
+                _session_store[user_id] = {
+                    "batch_type": "wellness",
+                    "batch_items": []
+                }
+                return {"success": True, "action": "started", "batch_type": "wellness"}
+            else:
+                return {"success": False, "error": f"Unknown batch type: {batch_type}"}
 
         elif action == "add_item":
             session_data = _session_store.get(user_id, {})
-            if session_data.get("batch_type") != "meal":
-                return {"success": False, "error": "No active meal batch"}
+            batch_type = session_data.get("batch_type")
+            if not batch_type:
+                return {"success": False, "error": "No active batch"}
 
             items = session_data.get("batch_items", [])
             new_item = data.get("item") if data else None
@@ -93,20 +110,24 @@ async def update_batch_state(
             return {
                 "success": True,
                 "action": "added",
+                "batch_type": batch_type,
                 "item_count": len(items),
                 "new_item": new_item
             }
 
         elif action == "complete_batch":
             session_data = _session_store.get(user_id, {})
-            if session_data.get("batch_type") != "meal":
-                return {"success": False, "error": "No active meal batch"}
+            batch_type = session_data.get("batch_type")
+            if not batch_type:
+                return {"success": False, "error": "No active batch"}
 
             batch_data = {
-                "batch_type": session_data.get("batch_type"),
-                "meal_type": session_data.get("meal_type"),
+                "batch_type": batch_type,
                 "items": session_data.get("batch_items", [])
             }
+            
+            if batch_type == "meal":
+                batch_data["meal_type"] = session_data.get("meal_type")
 
             # Clear the session
             _session_store[user_id] = {}
