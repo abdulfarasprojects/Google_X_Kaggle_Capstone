@@ -75,13 +75,7 @@ The Weight Loss Chat Agent implements a sophisticated multi-agent architecture w
 
 The system is built on Google's Agent Development Kit (ADK), leveraging Large Language Models (LLMs) for intelligent conversation processing. The architecture emphasizes modularity, with clear separation of concerns between agents while maintaining seamless context preservation across interactions.
 
-### Overall System Architecture
-
-#file:bot_architecture.mmd
-
-### Overall System Architecture
-
-#file:/Users/abdulfaras/Google_X_Kaggle_Capstone/Docs/MM/bot_architecture.mmd
+#### Overall System Architecture
 
 ### Agent Interaction Patterns
 
