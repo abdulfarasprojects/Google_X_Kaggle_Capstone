@@ -1,4 +1,4 @@
-# Weight Loss Tracker & Coach Chat Agent 🤖
+# Weight Loss Tracker Chat Agent 🤖
 
 A conversational AI-powered Telegram bot that helps users track their weight loss journey through nutrition, fitness, and wellness logging with autonomous nudges and personalized recommendations.
 
@@ -71,7 +71,7 @@ The Weight Loss Chat Agent delivers transformative value by making healthy habit
 
 ## Core Concept
 
-The Weight Loss Chat Agent implements a sophisticated multi-agent architecture where specialized AI agents collaborate to provide comprehensive health tracking and coaching. Each agent possesses domain expertise and tools, working together under a central coordinator to deliver personalized, context-aware responses.
+The Weight Loss Chat Agent implements a sophisticated multi-agent architecture where specialized AI agents collaborate to provide comprehensive health tracking and guidance. Each agent possesses domain expertise and tools, working together under a central coordinator to deliver personalized, context-aware responses.
 
 The system is built on Google's Agent Development Kit (ADK), leveraging Large Language Models (LLMs) for intelligent conversation processing. The architecture emphasizes modularity, with clear separation of concerns between agents while maintaining seamless context preservation across interactions.
 
@@ -648,7 +648,7 @@ All sub-agents are `LlmAgent` instances with domain-specific knowledge and tools
 
 ## 📱 How It Works
 
-The Weight Loss Chat Agent is your personal health coach available 24/7 through Telegram. Simply chat with the bot to log your meals, workouts, and wellness metrics, and receive personalized guidance for your weight loss journey.
+The Weight Loss Chat Agent is your personal health assistant available 24/7 through Telegram. Simply chat with the bot to log your meals, workouts, and wellness metrics, and receive personalized guidance for your weight loss journey.
 
 ### Core Principles
 - **Recommendation-Only**: The bot guides and tracks, but you control your journey
