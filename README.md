@@ -22,7 +22,7 @@ A conversational AI-powered Telegram bot that helps users track their weight los
 
 This Telegram bot is a friendly, privacy-first AI weight loss companion designed to make healthy habits easier to build and track. It lets users log meals, workouts, water intake, sleep, and daily steps in a conversation—without judgment, tedious apps, or spreadsheets. With gentle nudges, smart batch processing, and weekly progress reports, it adapts to each user's goals and schedule. The bot supports dietary restrictions, respects privacy, and recovers intelligently from errors or ambiguities, making it a trustworthy partner for sustainable weight management and wellness.
 
-### ✅ Completed (Phase 1 MVP)
+### ✅ Completed Features
 - **Conversational Onboarding**: Step-by-step profile setup with personalized calorie goals (recently fixed and tested)
 - **User Profile Management**: Secure storage of demographics, goals, and preferences
 - **Health-Focused Validation**: BMI checks, safe calorie ranges, and wellness guardrails
@@ -33,8 +33,6 @@ This Telegram bot is a friendly, privacy-first AI weight loss companion designed
 - **Google ADK Integration**: Full agent development kit implementation with lazy loading and error handling
 - **Database Layer**: Complete SQLite persistence with SQLAlchemy ORM and data managers
 - **Telegram Bot Integration**: Production-ready bot with webhook support and graceful degradation
-
-### 🚧 In Development
 - **Nutrition Tracking**: Enhanced meal logging with improved USDA API integration and batch processing
 - **Fitness Logging**: Advanced workout tracking with volume calculations and progression suggestions
 - **Wellness Monitoring**: Comprehensive sleep, water intake, and step counting with correlations
@@ -48,97 +46,110 @@ This Telegram bot is a friendly, privacy-first AI weight loss companion designed
 
 ```mermaid
 graph TB
-    subgraph "Entry Layer"
-        A[Telegram Bot<br/>bot.py<br/>Primary Interface]
+    %% Entry Point
+    subgraph "User Interface Layer"
+        U[👤 User<br/>Telegram Chat]
+        T[🤖 Telegram Bot<br/>bot.py<br/>Message Handler]
     end
-    
-    subgraph "Routing Layer"
-        B{User Profile<br/>Exists?}
-        D[Agent Router<br/>adk_integration.py<br/>ADKAgentRunner]
+
+    %% Core Processing Layer
+    subgraph "ADK Integration Layer"
+        ADK[🔄 ADK Agent Runner<br/>adk_integration.py<br/>Intent Classification & Routing]
+        SESS[💾 Session Service<br/>InMemorySessionService<br/>24h Context Preservation]
     end
-    
-    subgraph "Onboarding Flow"
-        C[Onboarding Agent<br/>onboarding_agent.py<br/>BaseAgent]
-        U[Profile Manager<br/>profile_manager.py]
+
+    %% Agent Orchestration
+    subgraph "Agent Framework"
+        ROOT[🎯 Root Agent<br/>agents/root/agent.py<br/>LlmAgent + Coordinator<br/>Intent: General/Support]
+
+        subgraph "Specialized Agents"
+            NUTR[🍽️ Nutrition Agent<br/>agents/nutrition/agent.py<br/>LlmAgent + Meal Processing]
+            FIT[💪 Fitness Agent<br/>agents/fitness/agent.py<br/>LlmAgent + Workout Analysis]
+            WELL[😴 Wellness Agent<br/>agents/wellness/agent.py<br/>LlmAgent + Health Tracking]
+            ANAL[📊 Analytics Agent<br/>agents/analytics/agent.py<br/>LlmAgent + Progress Reports]
+            NUDGE[🔔 Nudge Agent<br/>agents/nudge/agent.py<br/>LlmAgent + Reminders]
+        end
     end
-    
-    subgraph "ADK Framework"
-        E[ADK Runner<br/>InMemoryRunner<br/>Session Management]
-        F[Root Agent<br/>agent.py<br/>LlmAgent + Tools<br/>🎯 Orchestrates Everything]
-    end
-    
-    subgraph "Core Analysis Tools"
-        G[Intent Classifier<br/>intent_classifier.py]
-        H[Sentiment Detector<br/>sentiment_detector.py]
-        I[Response Formatter<br/>response_formatter.py]
-        X[Batch State Manager<br/>batch_state_manager.py]
-    end
-    
-    subgraph "Domain-Specific Tools"
-        J[Nutrition Tools<br/>batch_parser.py<br/>calculator.py<br/>meal_storage.py]
-        K[Fitness Tools<br/>batch_parser.py<br/>calculator.py<br/>workout_storage.py<br/>progress.py]
-        L[Wellness Tools<br/>wellness_logger.py]
-        M[Analytics Tools<br/>calculator.py<br/>reporter.py]
-        N[Nudge Tools<br/>scheduler.py]
-    end
-    
+
+    %% Data Persistence Layer
     subgraph "Database Layer"
-        O[Meal Manager<br/>meal_manager.py]
-        P[Workout Manager<br/>workout_manager.py]
-        Q[Wellness Manager<br/>wellness_manager.py]
-        R[Analytics Manager<br/>analytics_manager.py]
-        S[Nudge Manager<br/>nudge_manager.py]
+        DB[(📊 SQLite Database<br/>weight_loss_app.db<br/>Encrypted Storage)]
+
+        subgraph "Database Managers"
+            PROF[👤 Profile Manager<br/>database/profile_manager.py<br/>User Demographics & Goals]
+            MEAL[🍽️ Meal Manager<br/>database/meal_manager.py<br/>Nutrition Logging]
+            WORK[💪 Workout Manager<br/>database/workout_manager.py<br/>Fitness Tracking]
+            WELL_M[😴 Wellness Manager<br/>database/wellness_manager.py<br/>Health Metrics]
+            ANAL_M[📊 Analytics Manager<br/>database/analytics_manager.py<br/>Progress Reports]
+            NUDGE_M[🔔 Nudge Manager<br/>database/nudge_manager.py<br/>Reminder Scheduling]
+        end
     end
-    
-    subgraph "Unused Sub-Agents"
-        V[Sub-Agents<br/>nutrition/agent.py<br/>fitness/agent.py<br/>wellness/agent.py<br/>analytics/agent.py<br/>nudge/agent.py<br/>❌ Not Called by Root]
+
+    %% External Services
+    subgraph "External APIs"
+        USDA[🌽 USDA FoodData Central<br/>Official Nutrition Database]
+        NUTRIX[🥗 Nutritionix API<br/>Food Database Fallback]
+        GEMINI[🤖 Google Gemini 2.5 Flash<br/>AI Language Model]
     end
-    
-    subgraph "Data Persistence"
-        T[(SQLite Database<br/>weight_loss_app.db<br/>━━━━━━━━━━━━━<br/>UserProfile<br/>MealLog<br/>WorkoutLog<br/>WellnessLog<br/>NudgeEvent<br/>ProgressSummary<br/>SessionState<br/>ApiUsage)]
-    end
-    
-    A --> B
-    B -->|No Profile| C
-    B -->|Has Profile| D
-    
-    D --> E
-    E --> F
-    
-    C --> U
-    U --> T
-    
-    F --> G
-    F --> H
-    F --> I
-    F --> X
-    
-    F --> J
-    F --> K
-    F --> L
-    F --> M
-    F --> N
-    
-    J --> O
-    K --> P
-    L --> Q
-    M --> R
-    N --> S
-    
-    O --> T
-    P --> T
-    Q --> T
-    R --> T
-    S --> T
-    
-    X --> T
-    
-    V -.->|Defined But<br/>Not Used| F
-    
-    style F fill:#ff9999,stroke:#ff0000,stroke-width:3px
-    style V fill:#cccccc,stroke:#999999,stroke-width:2px,stroke-dasharray: 5 5
-    style T fill:#99ccff,stroke:#0066cc,stroke-width:3px
-    style A fill:#99ff99,stroke:#00cc00,stroke-width:2px
+
+    %% Component Communication Flow
+    U -->|"User Message"| T
+    T -->|"Process Message"| ADK
+    ADK -->|"Manage Session"| SESS
+    ADK -->|"Route by Intent"| ROOT
+
+    ROOT -->|"Nutrition Intent"| NUTR
+    ROOT -->|"Fitness Intent"| FIT
+    ROOT -->|"Wellness Intent"| WELL
+    ROOT -->|"Analytics Intent"| ANAL
+    ROOT -->|"Nudge Intent"| NUDGE
+
+    NUTR -->|"Store Data"| MEAL
+    FIT -->|"Store Data"| WORK
+    WELL -->|"Store Data"| WELL_M
+    ANAL -->|"Query Data"| ANAL_M
+    NUDGE -->|"Schedule"| NUDGE_M
+
+    MEAL -->|"Persist"| DB
+    WORK -->|"Persist"| DB
+    WELL_M -->|"Persist"| DB
+    ANAL_M -->|"Persist"| DB
+    NUDGE_M -->|"Persist"| DB
+    PROF -->|"Persist"| DB
+
+    NUTR -.->|"Nutrition Data"| USDA
+    NUTR -.->|"Fallback"| NUTRIX
+    ROOT -.->|"AI Processing"| GEMINI
+    NUTR -.->|"AI Processing"| GEMINI
+    FIT -.->|"AI Processing"| GEMINI
+    WELL -.->|"AI Processing"| GEMINI
+    ANAL -.->|"AI Processing"| GEMINI
+    NUDGE -.->|"AI Processing"| GEMINI
+
+    %% Response Flow (reverse)
+    NUTR -->|"Response"| ROOT
+    FIT -->|"Response"| ROOT
+    WELL -->|"Response"| ROOT
+    ANAL -->|"Response"| ROOT
+    NUDGE -->|"Response"| ROOT
+    ROOT -->|"Formatted Response"| ADK
+    ADK -->|"Send to User"| T
+    T -->|"Telegram Message"| U
+
+    %% Styling
+    style U fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    style T fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    style ADK fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style ROOT fill:#ffecb3,stroke:#ff6f00,stroke-width:3px
+    style DB fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px
+    style GEMINI fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+
+    %% Subgraph styling
+    classDef agentClass fill:#fff9c4,stroke:#f57c00,stroke-width:2px
+    classDef dbClass fill:#e8f5e8,stroke:#388e3c,stroke-width:1px
+
+    class NUTR,FIT,WELL,ANAL,NUDGE agentClass
+    class PROF,MEAL,WORK,WELL_M,ANAL_M,NUDGE_M dbClass
 ```
 
 ### Agent Interaction Patterns
