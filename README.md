@@ -45,6 +45,7 @@ This Telegram bot is a friendly, privacy-first AI weight loss companion designed
 ### Overall System Architecture
 
 ```mermaid
+%%{init: {'theme': 'neo'}}%%
 graph TB
     %% Entry Point
     subgraph "User Interface Layer"
@@ -216,7 +217,7 @@ graph TD
     ROOT -->|"Use Tool"| BATCH
 
     %% Session Management
-    ADK -->|"Access Context"| SESS
+    ADK -->|"Manage Session"| SESS
     ROOT -->|"Access Context"| SESS
     NUTR -->|"Access Context"| SESS
     FIT -->|"Access Context"| SESS
@@ -271,141 +272,86 @@ graph TD
 ### Agent Tools & Capabilities
 
 ```mermaid
-graph TD
-    %% Agents and their tools
-    subgraph "Root Agent Tools"
-        ROOT[🎯 Root Agent<br/>Coordinator]
-
-        subgraph "Core Tools (Available to All Agents)"
-            INTENT[🎯 Intent Classifier<br/>tools/intent_classifier.py<br/>Gemini-powered intent detection<br/>Classifies: nutrition, fitness, wellness, analytics]
-            SENT[😊 Sentiment Detector<br/>tools/sentiment_detector.py<br/>Emotional state analysis<br/>Detects: happy, frustrated, motivated, etc.]
-            FMT[📝 Response Formatter<br/>tools/response_formatter.py<br/>Structured response generation<br/>Formats for Telegram with emojis & formatting]
-            BATCH[📦 Batch State Manager<br/>tools/batch_state_manager.py<br/>Multi-item conversation handling<br/>Manages: meal batches, workout sets, etc.]
-        end
-    end
-
-    subgraph "Nutrition Agent Tools"
-        NUTR[🍽️ Nutrition Agent<br/>Meal Processing]
-
-        subgraph "Nutrition-Specific Tools"
-            N_PARSER[🍽️ Batch Parser<br/>tools/nutrition/batch_parser.py<br/>Food item extraction from text<br/>Parses: "2 eggs, toast, coffee"]
-            N_CALC[🧮 Calculator<br/>tools/nutrition/calculator.py<br/>Nutrition calculation<br/>APIs: USDA + Nutritionix fallback]
-            N_MANUAL[✏️ Manual Entry<br/>tools/nutrition/manual_entry.py<br/>Fallback calorie input<br/>Allows: "500 calories"]
-            N_STORE[💾 Meal Storage<br/>tools/nutrition/meal_storage.py<br/>Database operations<br/>Stores: calories, protein, macros]
-        end
-    end
-
-    subgraph "Fitness Agent Tools"
-        FIT[💪 Fitness Agent<br/>Workout Analysis]
-
-        subgraph "Fitness-Specific Tools"
-            F_PARSER[🏋️ Batch Parser<br/>tools/fitness/batch_parser.py<br/>Exercise processing<br/>Parses: "3 sets squats 80kg"]
-            F_CALC[📊 Calculator<br/>tools/fitness/calculator.py<br/>Volume & progression<br/>Calculates: total volume, PRs]
-            F_STORE[💾 Workout Storage<br/>tools/fitness/workout_storage.py<br/>Database operations<br/>Stores: exercises, sets, reps, weight]
-        end
-    end
-
-    subgraph "Wellness Agent Tools"
-        WELL[😴 Wellness Agent<br/>Health Tracking]
-
-        subgraph "Wellness-Specific Tools"
-            W_PARSER[💧 Parser<br/>tools/wellness/wellness_logger.py<br/>Health metric extraction<br/>Parses: sleep, water, steps]
-            W_CORR[🔗 Correlations<br/>tools/wellness/correlations.py<br/>Health pattern analysis<br/>Analyzes: sleep vs. calories]
-        end
-    end
-
-    subgraph "Analytics Agent Tools"
-        ANAL[📊 Analytics Agent<br/>Progress Reports]
-
-        subgraph "Analytics-Specific Tools"
-            A_CALC[📈 Calculator<br/>tools/analytics/calculator.py<br/>Progress metrics<br/>Computes: weekly averages, trends]
-            A_TRENDS[📉 Trends<br/>tools/analytics/trends.py<br/>Historical analysis<br/>Analyzes: progress over time]
-            A_HERO[🏆 Hero Stats<br/>tools/analytics/hero_stats.py<br/>Achievement highlights<br/>Finds: best days, streaks]
-        end
-    end
-
-    subgraph "Nudge Agent Tools"
-        NUDGE[🔔 Nudge Agent<br/>Reminders]
-
-        subgraph "Nudge-Specific Tools"
-            NU_SCHED[⏰ Scheduler<br/>tools/nudge/scheduler.py<br/>Timezone-aware timing<br/>Schedules: daily/weekly reminders]
-            NU_GEN[🎨 Generator<br/>tools/nudge/generator.py<br/>Personalized messages<br/>Creates: motivational nudges]
-            NU_STREAK[🔥 Streak Tracker<br/>tools/nudge/streak_analyzer.py<br/>Habit consistency<br/>Tracks: logging streaks, patterns]
-        end
-    end
-
-    %% Tool Usage Connections
-    ROOT -->|"Intent Classification"| INTENT
-    ROOT -->|"Emotional Analysis"| SENT
-    ROOT -->|"Response Formatting"| FMT
-    ROOT -->|"Batch Processing"| BATCH
-
-    NUTR -->|"Food Parsing"| N_PARSER
-    NUTR -->|"Nutrition Calculation"| N_CALC
-    NUTR -->|"Manual Entry"| N_MANUAL
-    NUTR -->|"Data Storage"| N_STORE
-
-    FIT -->|"Exercise Parsing"| F_PARSER
-    FIT -->|"Volume Calculation"| F_CALC
-    FIT -->|"Data Storage"| F_STORE
-
-    WELL -->|"Metric Parsing"| W_PARSER
-    WELL -->|"Pattern Analysis"| W_CORR
-
-    ANAL -->|"Metric Calculation"| A_CALC
-    ANAL -->|"Trend Analysis"| A_TRENDS
-    ANAL -->|"Achievement Detection"| A_HERO
-
-    NUDGE -->|"Timing Logic"| NU_SCHED
-    NUDGE -->|"Message Creation"| NU_GEN
-    NUDGE -->|"Streak Analysis"| NU_STREAK
-
-    %% Cross-agent tool sharing
-    NUTR -.->|"Can use core tools"| INTENT
-    NUTR -.->|"Can use core tools"| SENT
-    NUTR -.->|"Can use core tools"| FMT
-    NUTR -.->|"Can use core tools"| BATCH
-
-    FIT -.->|"Can use core tools"| INTENT
-    FIT -.->|"Can use core tools"| SENT
-    FIT -.->|"Can use core tools"| FMT
-    FIT -.->|"Can use core tools"| BATCH
-
-    WELL -.->|"Can use core tools"| INTENT
-    WELL -.->|"Can use core tools"| SENT
-    WELL -.->|"Can use core tools"| FMT
-    WELL -.->|"Can use core tools"| BATCH
-
-    ANAL -.->|"Can use core tools"| INTENT
-    ANAL -.->|"Can use core tools"| SENT
-    ANAL -.->|"Can use core tools"| FMT
-    ANAL -.->|"Can use core tools"| BATCH
-
-    NUDGE -.->|"Can use core tools"| INTENT
-    NUDGE -.->|"Can use core tools"| SENT
-    NUDGE -.->|"Can use core tools"| FMT
-    NUDGE -.->|"Can use core tools"| BATCH
-
-    %% External Dependencies
-    N_CALC -.->|"USDA API"| USDA[🌽 USDA FoodData Central]
-    N_CALC -.->|"Nutritionix API"| NUTRIX[🥗 Nutritionix Fallback]
-
-    INTENT -.->|"Gemini AI"| GEMINI[🤖 Google Gemini 2.5 Flash]
-    SENT -.->|"Gemini AI"| GEMINI
-    FMT -.->|"Gemini AI"| GEMINI
-
-    %% Styling
+flowchart LR
+ subgraph CoreTools["Core Tools - Available to All Agents"]
+        INTENT["🎯 Intent Classifier<br>tools/intent_classifier.py<br>Gemini-powered intent detection"]
+        SENT["😊 Sentiment Detector<br>tools/sentiment_detector.py<br>Emotional state analysis"]
+        FMT["📝 Response Formatter<br>tools/response_formatter.py<br>Structured Telegram responses"]
+        BATCH["📦 Batch State Manager<br>tools/batch_state_manager.py<br>Multi-item conversation handling"]
+  end
+ subgraph NutrTools["Nutrition Tools"]
+        N_PARSER["🍽️ Batch Parser<br>tools/nutrition/batch_parser.py<br>Food item extraction"]
+        N_CALC["🧮 Calculator<br>tools/nutrition/calculator.py<br>USDA + Nutritionix APIs"]
+        N_MANUAL["✏️ Manual Entry<br>tools/nutrition/manual_entry.py<br>Fallback calorie input"]
+        N_STORE["💾 Meal Storage<br>tools/nutrition/meal_storage.py<br>Database operations"]
+  end
+ subgraph FitTools["Fitness Tools"]
+        F_PARSER["🏋️ Batch Parser<br>tools/fitness/batch_parser.py<br>Exercise processing"]
+        F_CALC["📊 Calculator<br>tools/fitness/calculator.py<br>Volume &amp; progression"]
+        F_STORE["💾 Workout Storage<br>tools/fitness/workout_storage.py<br>Database operations"]
+  end
+ subgraph WellTools["Wellness Tools"]
+        W_PARSER["💧 Parser<br>tools/wellness/wellness_logger.py<br>Health metric extraction"]
+        W_CORR["🔗 Correlations<br>tools/wellness/correlations.py<br>Health pattern analysis"]
+  end
+ subgraph AnalTools["Analytics Tools"]
+        A_CALC["📈 Calculator<br>tools/analytics/calculator.py<br>Progress metrics"]
+        A_TRENDS["📉 Trends<br>tools/analytics/trends.py<br>Historical analysis"]
+        A_HERO["🏆 Hero Stats<br>tools/analytics/hero_stats.py<br>Achievement highlights"]
+  end
+ subgraph NudgeTools["Nudge Tools"]
+        NU_SCHED["⏰ Scheduler<br>tools/nudge/scheduler.py<br>Timezone-aware timing"]
+        NU_GEN["🎨 Generator<br>tools/nudge/generator.py<br>Personalized messages"]
+        NU_STREAK["🔥 Streak Tracker<br>tools/nudge/streak_analyzer.py<br>Habit consistency"]
+  end
+ subgraph External["External APIs"]
+        USDA["🌽 USDA FoodData Central"]
+        NUTRIX["🥗 Nutritionix Fallback"]
+        GEMINI["🤖 Google Gemini 2.5 Flash"]
+  end
+    ROOT["🎯 Root Agent<br>Coordinator"] --> INTENT & SENT & FMT & BATCH
+    NUTR["🍽️ Nutrition Agent<br>Meal Processing"] --> N_PARSER & N_CALC & N_MANUAL & N_STORE
+    FIT["💪 Fitness Agent<br>Workout Analysis"] --> F_PARSER & F_CALC & F_STORE
+    WELL["😴 Wellness Agent<br>Health Tracking"] --> W_PARSER & W_CORR
+    ANAL["📊 Analytics Agent<br>Progress Reports"] --> A_CALC & A_TRENDS & A_HERO
+    NUDGE["🔔 Nudge Agent<br>Reminders"] --> NU_SCHED & NU_GEN & NU_STREAK
+    NUTR -.-> CoreTools
+    FIT -.-> CoreTools
+    WELL -.-> CoreTools
+    ANAL -.-> CoreTools
+    NUDGE -.-> CoreTools
+    N_CALC --> USDA & NUTRIX
+    INTENT --> GEMINI
+    SENT --> GEMINI
+    FMT --> GEMINI
     style ROOT fill:#ffecb3,stroke:#ff6f00,stroke-width:3px
+    style INTENT fill:#e1f5fe,stroke:#01579b,stroke-width:1px
+    style SENT fill:#e1f5fe,stroke:#01579b,stroke-width:1px
+    style FMT fill:#e1f5fe,stroke:#01579b,stroke-width:1px
+    style BATCH fill:#e1f5fe,stroke:#01579b,stroke-width:1px
+    style NUTR fill:#fff9c4,stroke:#f57c00,stroke-width:2px
+    style N_PARSER fill:#f3e5f5,stroke:#7b1fa2,stroke-width:1px
+    style N_CALC fill:#f3e5f5,stroke:#7b1fa2,stroke-width:1px
+    style N_MANUAL fill:#f3e5f5,stroke:#7b1fa2,stroke-width:1px
+    style N_STORE fill:#f3e5f5,stroke:#7b1fa2,stroke-width:1px
+    style FIT fill:#fff9c4,stroke:#f57c00,stroke-width:2px
+    style F_PARSER fill:#f3e5f5,stroke:#7b1fa2,stroke-width:1px
+    style F_CALC fill:#f3e5f5,stroke:#7b1fa2,stroke-width:1px
+    style F_STORE fill:#f3e5f5,stroke:#7b1fa2,stroke-width:1px
+    style WELL fill:#fff9c4,stroke:#f57c00,stroke-width:2px
+    style W_PARSER fill:#f3e5f5,stroke:#7b1fa2,stroke-width:1px
+    style W_CORR fill:#f3e5f5,stroke:#7b1fa2,stroke-width:1px
+    style ANAL fill:#fff9c4,stroke:#f57c00,stroke-width:2px
+    style A_CALC fill:#f3e5f5,stroke:#7b1fa2,stroke-width:1px
+    style A_TRENDS fill:#f3e5f5,stroke:#7b1fa2,stroke-width:1px
+    style A_HERO fill:#f3e5f5,stroke:#7b1fa2,stroke-width:1px
+    style NUDGE fill:#fff9c4,stroke:#f57c00,stroke-width:2px
+    style NU_SCHED fill:#f3e5f5,stroke:#7b1fa2,stroke-width:1px
+    style NU_GEN fill:#f3e5f5,stroke:#7b1fa2,stroke-width:1px
+    style NU_STREAK fill:#f3e5f5,stroke:#7b1fa2,stroke-width:1px
+    style USDA fill:#e8f5e9,stroke:#2e7d32,stroke-width:1px
+    style NUTRIX fill:#e8f5e9,stroke:#2e7d32,stroke-width:1px
     style GEMINI fill:#fce4ec,stroke:#880e4f,stroke-width:2px
-
-    %% Subgraph styling
-    classDef agentClass fill:#fff9c4,stroke:#f57c00,stroke-width:2px
-    classDef toolClass fill:#f3e5f5,stroke:#7b1fa2,stroke-width:1px
-    classDef coreToolClass fill:#e1f5fe,stroke:#01579b,stroke-width:1px
-
-    class NUTR,FIT,WELL,ANAL,NUDGE agentClass
-    class N_PARSER,N_CALC,N_MANUAL,N_STORE,F_PARSER,F_CALC,F_STORE,W_PARSER,W_CORR,A_CALC,A_TRENDS,A_HERO,NU_SCHED,NU_GEN,NU_STREAK toolClass
-    class INTENT,SENT,FMT,BATCH coreToolClass
 ```
 
 ### Conversation Flows & Error Handling
