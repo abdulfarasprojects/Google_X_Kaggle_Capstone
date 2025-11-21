@@ -128,25 +128,25 @@ USER (Telegram)
 
 ## Project Journey
 
-### Day 1-2: Foundation & Architecture
+### Day 1-5: Foundation & Architecture - Google X Kaggle 5 Day Agent building workshop
 Challenge: Understanding ADK's agent framework and navigating tool patterns
 Learning: Started with single agent, evolved to multi-agent system after grasping transfer patterns
 Pivot: Switched from agent transfer to direct routing after hitting circular import issues
 Progress: Basic routing working, agent communication established
 
-### Day 3: Tool Development & API Integration
+### Day 6: Tool Development & API Integration
 Challenge: USDA API has 380K foods—parsing complexity required smart solutions
 Learning: Implemented fallback chain: USDA → Nutritionix → Manual entry for reliability
 Success: Batch processing handles "2 eggs and toast" in single message
 Breakthrough: Food recognition working end-to-end
 
-### Day 4: Persistence & State Management
+### Day 7: Persistence & State Management
 Challenge: InMemorySessionService wasn't persisting across restarts—sessions lost constantly
 Learning: Implemented custom SessionState table in SQLite with auto-expiry
 Success: Sessions now persist and auto-expire after 24 hours
 Win: Production-ready state management achieved
 
-### Day 5-6: Polish, Documentation & Reality Check
+### Day 8-10: Polish, Documentation & Reality Check
 Focus: Architecture diagrams, comprehensive README, evaluation framework setup
 Admission: 5 agents is over-engineered for production—this was built for learning ADK patterns
 Reality Check: Still missing deployment guide, demo video, and automated test coverage
