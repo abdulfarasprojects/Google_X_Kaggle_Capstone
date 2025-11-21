@@ -1389,4 +1389,4 @@ TELEGRAM_ADMIN_USER_ID=<your telegram user id>
 For additional information, see:
 - [Executive Summary]
 - [Project Journey]
-- [Main README]
+- [[Main README]](https://github.com/abdulfarasprojects/Google_X_Kaggle_Capstone/blob/main/README.md)
