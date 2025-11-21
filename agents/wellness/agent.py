@@ -18,6 +18,10 @@ from tools.wellness.parser import parse_wellness_entries
 from tools.wellness.correlations import analyze_wellness_correlations
 from database.wellness_manager import wellness_manager
 
+# Observability imports
+from observability.tracing import traced
+from observability.metrics import record_request, record_response_time, record_error
+
 # Import Google ADK
 from google.adk.agents import LlmAgent
 from google.adk.tools import FunctionTool
@@ -26,6 +30,7 @@ from config.gemini import PatchedGemini
 logger = get_logger(__name__)
 
 # Logging wrapper functions for tools
+@traced("parse_wellness_entries")
 def logged_parse_wellness_entries(*args, **kwargs):
     """Wrapper for wellness parsing with logging."""
     logger.info(f"🌙 Parsing wellness entries with args: {args}, kwargs: {kwargs}")
@@ -33,6 +38,7 @@ def logged_parse_wellness_entries(*args, **kwargs):
     logger.info(f"📋 Wellness parsing result: {result}")
     return result
 
+@traced("analyze_wellness_correlations")
 def logged_analyze_wellness_correlations(*args, **kwargs):
     """Wrapper for wellness correlation analysis with logging."""
     logger.info(f"📊 Analyzing wellness correlations with args: {args}, kwargs: {kwargs}")
@@ -40,6 +46,7 @@ def logged_analyze_wellness_correlations(*args, **kwargs):
     logger.info(f"🔗 Wellness correlations result: {result}")
     return result
 
+@traced("get_wellness_summary")
 def logged_get_wellness_summary(user_id: str, period: str = "today", tool_context: Optional[Dict[str, Any]] = None):
     """Wrapper for wellness summary queries with logging."""
     logger.info(f"📊 Getting wellness summary for user {user_id}, period: {period}")

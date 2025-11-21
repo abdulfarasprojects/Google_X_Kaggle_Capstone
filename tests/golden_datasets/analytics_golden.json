@@ -1,0 +1,321 @@
+{
+  "description": "Golden dataset for analytics agent testing with 20+ test cases covering summaries, reports, and trend analysis",
+  "version": "1.0",
+  "test_cases": [
+    {
+      "input": "how many calories today",
+      "expected": {
+        "period": "today",
+        "type": "nutrition_summary",
+        "data": {
+          "total_calories": 1850,
+          "total_protein_g": 95,
+          "meals_logged": 3,
+          "goal_progress": 77,
+          "remaining_calories": 450
+        },
+        "insights": "Good progress toward daily calorie goal"
+      }
+    },
+    {
+      "input": "protein this week",
+      "expected": {
+        "period": "week",
+        "type": "nutrition_summary",
+        "data": {
+          "total_protein_g": 665,
+          "average_daily_protein": 95,
+          "protein_goal_progress": 95,
+          "best_day": "Wednesday",
+          "trend": "consistent"
+        },
+        "insights": "Excellent protein intake this week"
+      }
+    },
+    {
+      "input": "progress this week",
+      "expected": {
+        "period": "week",
+        "type": "comprehensive_summary",
+        "data": {
+          "calories_avg": 2100,
+          "workouts_completed": 5,
+          "sleep_avg_hours": 7.2,
+          "water_avg_glasses": 7.5,
+          "steps_avg": 9500,
+          "weight_change": -0.8,
+          "hero_stat": "Lost 0.8kg this week"
+        },
+        "insights": "Great overall progress with consistent habits"
+      }
+    },
+    {
+      "input": "workout summary this week",
+      "expected": {
+        "period": "week",
+        "type": "fitness_summary",
+        "data": {
+          "total_workouts": 5,
+          "total_volume": 1250,
+          "avg_volume_per_workout": 250,
+          "most_frequent_exercise": "squats",
+          "strength_progress": "+5kg on bench press"
+        },
+        "insights": "Consistent training with strength gains"
+      }
+    },
+    {
+      "input": "sleep quality this week",
+      "expected": {
+        "period": "week",
+        "type": "wellness_summary",
+        "data": {
+          "avg_sleep_hours": 7.2,
+          "avg_sleep_quality": 7.5,
+          "best_night": "Tuesday",
+          "worst_night": "Friday",
+          "consistency_score": 8.2
+        },
+        "insights": "Good sleep consistency with room for quality improvement"
+      }
+    },
+    {
+      "input": "water intake this month",
+      "expected": {
+        "period": "month",
+        "type": "wellness_summary",
+        "data": {
+          "avg_water_glasses": 7.8,
+          "best_day": 12,
+          "hydration_streak": 5,
+          "monthly_total_glasses": 234,
+          "goal_achievement_rate": 87
+        },
+        "insights": "Strong hydration habits with good consistency"
+      }
+    },
+    {
+      "input": "steps this week",
+      "expected": {
+        "period": "week",
+        "type": "wellness_summary",
+        "data": {
+          "total_steps": 66500,
+          "avg_daily_steps": 9500,
+          "goal_achievement_days": 5,
+          "best_day": 12500,
+          "walking_streak": 7
+        },
+        "insights": "Excellent activity level all week"
+      }
+    },
+    {
+      "input": "calorie trend last 7 days",
+      "expected": {
+        "period": "week",
+        "type": "nutrition_trend",
+        "data": {
+          "daily_calories": [1950, 2100, 1850, 2200, 2000, 2150, 1900],
+          "trend_direction": "stable",
+          "avg_calories": 2021,
+          "consistency_score": 8.5,
+          "best_day": "Thursday"
+        },
+        "insights": "Very consistent calorie intake"
+      }
+    },
+    {
+      "input": "weight loss progress",
+      "expected": {
+        "period": "overall",
+        "type": "progress_summary",
+        "data": {
+          "starting_weight": 85.5,
+          "current_weight": 78.2,
+          "total_loss": 7.3,
+          "weekly_avg_loss": 0.6,
+          "months_tracked": 3,
+          "on_track": true
+        },
+        "insights": "Steady progress toward weight loss goal"
+      }
+    },
+    {
+      "input": "hero stats this month",
+      "expected": {
+        "period": "month",
+        "type": "hero_stats",
+        "data": {
+          "top_achievements": [
+            "Lost 2.1kg this month",
+            "30-day workout streak",
+            "Average 8+ hours sleep nightly",
+            "15,000+ steps for 20 days"
+          ],
+          "personal_records": [
+            "Heaviest bench press: 90kg",
+            "Longest run: 12km",
+            "Most steps in a day: 18,500"
+          ]
+        },
+        "insights": "Outstanding month with multiple personal records"
+      }
+    },
+    {
+      "input": "nutrition summary yesterday",
+      "expected": {
+        "period": "yesterday",
+        "type": "nutrition_summary",
+        "data": {
+          "total_calories": 1950,
+          "total_protein_g": 110,
+          "meals_logged": 4,
+          "goal_progress": 78,
+          "protein_goal_progress": 110
+        },
+        "insights": "Great protein intake yesterday"
+      }
+    },
+    {
+      "input": "workout volume trend",
+      "expected": {
+        "period": "month",
+        "type": "fitness_trend",
+        "data": {
+          "weekly_volume": [1200, 1350, 1100, 1450],
+          "trend_direction": "increasing",
+          "avg_volume": 1275,
+          "progress_rate": "+12% per week",
+          "consistency_score": 9.2
+        },
+        "insights": "Progressive overload working well"
+      }
+    },
+    {
+      "input": "sleep vs energy correlation",
+      "expected": {
+        "period": "week",
+        "type": "correlation_analysis",
+        "data": {
+          "sleep_energy_correlation": 0.78,
+          "high_energy_days": ["Monday", "Wednesday", "Friday"],
+          "low_energy_days": ["Tuesday", "Thursday"],
+          "avg_sleep_high_energy": 8.1,
+          "avg_sleep_low_energy": 6.8
+        },
+        "insights": "Clear link between sleep quality and energy levels"
+      }
+    },
+    {
+      "input": "meal timing analysis",
+      "expected": {
+        "period": "week",
+        "type": "nutrition_analysis",
+        "data": {
+          "avg_meal_frequency": 3.2,
+          "most_common_meal_times": ["8:00", "13:00", "19:00"],
+          "largest_meal": "dinner",
+          "protein_distribution": {
+            "breakfast": 25,
+            "lunch": 35,
+            "dinner": 40
+          }
+        },
+        "insights": "Good meal timing consistency"
+      }
+    },
+    {
+      "input": "rest day analysis",
+      "expected": {
+        "period": "month",
+        "type": "recovery_analysis",
+        "data": {
+          "rest_days_count": 8,
+          "avg_calories_rest_days": 1950,
+          "avg_sleep_rest_days": 8.2,
+          "recovery_quality_score": 8.5,
+          "next_recommended_rest": "Friday"
+        },
+        "insights": "Good balance of training and recovery"
+      }
+    },
+    {
+      "input": "goal achievement rate",
+      "expected": {
+        "period": "month",
+        "type": "goal_analysis",
+        "data": {
+          "calorie_goal_achievement": 85,
+          "protein_goal_achievement": 92,
+          "workout_goal_achievement": 95,
+          "sleep_goal_achievement": 78,
+          "water_goal_achievement": 88,
+          "steps_goal_achievement": 90
+        },
+        "insights": "Excellent goal achievement across most metrics"
+      }
+    },
+    {
+      "input": "strength progress over time",
+      "expected": {
+        "period": "3months",
+        "type": "strength_trend",
+        "data": {
+          "bench_press_progress": [70, 75, 80, 85, 90],
+          "squat_progress": [80, 85, 90, 95, 100],
+          "deadlift_progress": [100, 105, 110, 115, 120],
+          "overall_strength_gain": "+25%",
+          "rate_of_progress": "steady"
+        },
+        "insights": "Consistent strength gains across all major lifts"
+      }
+    },
+    {
+      "input": "weekend vs weekday comparison",
+      "expected": {
+        "period": "month",
+        "type": "lifestyle_comparison",
+        "data": {
+          "weekday_avg_calories": 2050,
+          "weekend_avg_calories": 2250,
+          "weekday_avg_steps": 10500,
+          "weekend_avg_steps": 8500,
+          "weekday_avg_sleep": 7.8,
+          "weekend_avg_sleep": 8.2
+        },
+        "insights": "Higher calorie intake on weekends, better sleep"
+      }
+    },
+    {
+      "input": "personal bests this quarter",
+      "expected": {
+        "period": "quarter",
+        "type": "personal_records",
+        "data": {
+          "weight_loss": "Lost 5.2kg total",
+          "longest_streak": "45-day logging streak",
+          "highest_protein_day": "165g protein",
+          "best_workout_volume": "350 volume score",
+          "most_steps_day": "21,500 steps"
+        },
+        "insights": "Multiple personal records set this quarter"
+      }
+    },
+    {
+      "input": "habit consistency score",
+      "expected": {
+        "period": "month",
+        "type": "consistency_analysis",
+        "data": {
+          "meal_logging_consistency": 95,
+          "workout_consistency": 90,
+          "sleep_tracking_consistency": 88,
+          "water_tracking_consistency": 92,
+          "steps_tracking_consistency": 98,
+          "overall_consistency": 93
+        },
+        "insights": "Excellent habit tracking consistency"
+      }
+    }
+  ]
+}

@@ -1,0 +1,402 @@
+{
+  "description": "Golden dataset for wellness agent testing with 30+ test cases covering sleep, water, steps, and combined wellness metrics",
+  "version": "1.0",
+  "test_cases": [
+    {
+      "input": "slept 7.5 hours, quality 8/10",
+      "expected": {
+        "sleep_hours": 7.5,
+        "sleep_quality": 8,
+        "water_glasses": 0,
+        "steps_count": 0,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Good sleep quality"
+      }
+    },
+    {
+      "input": "drank 8 glasses",
+      "expected": {
+        "sleep_hours": 0,
+        "sleep_quality": 0,
+        "water_glasses": 8,
+        "steps_count": 0,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Good hydration"
+      }
+    },
+    {
+      "input": "walked 10000 steps",
+      "expected": {
+        "sleep_hours": 0,
+        "sleep_quality": 0,
+        "water_glasses": 0,
+        "steps_count": 10000,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Daily step goal achieved"
+      }
+    },
+    {
+      "input": "slept 7h, drank 6 glasses, 8k steps",
+      "expected": {
+        "sleep_hours": 7.0,
+        "sleep_quality": 7,
+        "water_glasses": 6,
+        "steps_count": 8000,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Balanced wellness day"
+      }
+    },
+    {
+      "input": "slept 6 hours last night",
+      "expected": {
+        "sleep_hours": 6.0,
+        "sleep_quality": 6,
+        "water_glasses": 0,
+        "steps_count": 0,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Below recommended sleep"
+      }
+    },
+    {
+      "input": "drank 10 glasses of water today",
+      "expected": {
+        "sleep_hours": 0,
+        "sleep_quality": 0,
+        "water_glasses": 10,
+        "steps_count": 0,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Excellent hydration"
+      }
+    },
+    {
+      "input": "walked 15000 steps today",
+      "expected": {
+        "sleep_hours": 0,
+        "sleep_quality": 0,
+        "water_glasses": 0,
+        "steps_count": 15000,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Above daily step goal"
+      }
+    },
+    {
+      "input": "slept 8 hours, feeling great",
+      "expected": {
+        "sleep_hours": 8.0,
+        "sleep_quality": 9,
+        "water_glasses": 0,
+        "steps_count": 0,
+        "mood": "great",
+        "stress_level": null,
+        "notes": "Excellent sleep"
+      }
+    },
+    {
+      "input": "only 4 glasses of water today",
+      "expected": {
+        "sleep_hours": 0,
+        "sleep_quality": 0,
+        "water_glasses": 4,
+        "steps_count": 0,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Below recommended hydration"
+      }
+    },
+    {
+      "input": "slept 9 hours, quality 10/10",
+      "expected": {
+        "sleep_hours": 9.0,
+        "sleep_quality": 10,
+        "water_glasses": 0,
+        "steps_count": 0,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Perfect sleep quality"
+      }
+    },
+    {
+      "input": "drank 7 glasses, walked 12000 steps",
+      "expected": {
+        "sleep_hours": 0,
+        "sleep_quality": 0,
+        "water_glasses": 7,
+        "steps_count": 12000,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Good activity and hydration"
+      }
+    },
+    {
+      "input": "slept 5.5 hours, quality 5/10",
+      "expected": {
+        "sleep_hours": 5.5,
+        "sleep_quality": 5,
+        "water_glasses": 0,
+        "steps_count": 0,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Poor sleep quality"
+      }
+    },
+    {
+      "input": "slept 7 hours, drank 8 glasses, walked 9000 steps",
+      "expected": {
+        "sleep_hours": 7.0,
+        "sleep_quality": 7,
+        "water_glasses": 8,
+        "steps_count": 9000,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Solid wellness metrics"
+      }
+    },
+    {
+      "input": "only 5000 steps today",
+      "expected": {
+        "sleep_hours": 0,
+        "sleep_quality": 0,
+        "water_glasses": 0,
+        "steps_count": 5000,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Below daily step goal"
+      }
+    },
+    {
+      "input": "slept 6.5 hours, feeling tired",
+      "expected": {
+        "sleep_hours": 6.5,
+        "sleep_quality": 5,
+        "water_glasses": 0,
+        "steps_count": 0,
+        "mood": "tired",
+        "stress_level": null,
+        "notes": "Feeling tired despite decent sleep"
+      }
+    },
+    {
+      "input": "drank 12 glasses today",
+      "expected": {
+        "sleep_hours": 0,
+        "sleep_quality": 0,
+        "water_glasses": 12,
+        "steps_count": 0,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Excessive hydration"
+      }
+    },
+    {
+      "input": "walked 20000 steps",
+      "expected": {
+        "sleep_hours": 0,
+        "sleep_quality": 0,
+        "water_glasses": 0,
+        "steps_count": 20000,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Exceptional activity level"
+      }
+    },
+    {
+      "input": "slept 8.5 hours, quality 9/10, drank 9 glasses",
+      "expected": {
+        "sleep_hours": 8.5,
+        "sleep_quality": 9,
+        "water_glasses": 9,
+        "steps_count": 0,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Excellent sleep and hydration"
+      }
+    },
+    {
+      "input": "slept 4 hours, quality 3/10",
+      "expected": {
+        "sleep_hours": 4.0,
+        "sleep_quality": 3,
+        "water_glasses": 0,
+        "steps_count": 0,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Very poor sleep"
+      }
+    },
+    {
+      "input": "drank 5 glasses, walked 11000 steps",
+      "expected": {
+        "sleep_hours": 0,
+        "sleep_quality": 0,
+        "water_glasses": 5,
+        "steps_count": 11000,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Moderate activity and hydration"
+      }
+    },
+    {
+      "input": "slept 7.25 hours, quality 7/10",
+      "expected": {
+        "sleep_hours": 7.25,
+        "sleep_quality": 7,
+        "water_glasses": 0,
+        "steps_count": 0,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Good sleep duration and quality"
+      }
+    },
+    {
+      "input": "slept 6 hours, drank 6 glasses, walked 8000 steps, feeling stressed",
+      "expected": {
+        "sleep_hours": 6.0,
+        "sleep_quality": 6,
+        "water_glasses": 6,
+        "steps_count": 8000,
+        "mood": null,
+        "stress_level": "stressed",
+        "notes": "Average metrics with stress"
+      }
+    },
+    {
+      "input": "drank 3 glasses today",
+      "expected": {
+        "sleep_hours": 0,
+        "sleep_quality": 0,
+        "water_glasses": 3,
+        "steps_count": 0,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Very low hydration"
+      }
+    },
+    {
+      "input": "walked 7500 steps",
+      "expected": {
+        "sleep_hours": 0,
+        "sleep_quality": 0,
+        "water_glasses": 0,
+        "steps_count": 7500,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Below recommended steps"
+      }
+    },
+    {
+      "input": "slept 10 hours, quality 8/10",
+      "expected": {
+        "sleep_hours": 10.0,
+        "sleep_quality": 8,
+        "water_glasses": 0,
+        "steps_count": 0,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Extended sleep duration"
+      }
+    },
+    {
+      "input": "slept 7 hours, drank 7 glasses, walked 10000 steps, feeling good",
+      "expected": {
+        "sleep_hours": 7.0,
+        "sleep_quality": 7,
+        "water_glasses": 7,
+        "steps_count": 10000,
+        "mood": "good",
+        "stress_level": null,
+        "notes": "Perfect wellness balance"
+      }
+    },
+    {
+      "input": "slept 5 hours, quality 4/10, drank 4 glasses",
+      "expected": {
+        "sleep_hours": 5.0,
+        "sleep_quality": 4,
+        "water_glasses": 4,
+        "steps_count": 0,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Poor sleep and hydration"
+      }
+    },
+    {
+      "input": "walked 13000 steps, drank 8 glasses",
+      "expected": {
+        "sleep_hours": 0,
+        "sleep_quality": 0,
+        "water_glasses": 8,
+        "steps_count": 13000,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Good activity and hydration"
+      }
+    },
+    {
+      "input": "slept 6.75 hours, quality 6/10",
+      "expected": {
+        "sleep_hours": 6.75,
+        "sleep_quality": 6,
+        "water_glasses": 0,
+        "steps_count": 0,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Adequate sleep"
+      }
+    },
+    {
+      "input": "slept 8 hours, drank 10 glasses, walked 15000 steps, feeling energetic",
+      "expected": {
+        "sleep_hours": 8.0,
+        "sleep_quality": 8,
+        "water_glasses": 10,
+        "steps_count": 15000,
+        "mood": "energetic",
+        "stress_level": null,
+        "notes": "Excellent wellness day"
+      }
+    },
+    {
+      "input": "slept 3 hours, quality 2/10",
+      "expected": {
+        "sleep_hours": 3.0,
+        "sleep_quality": 2,
+        "water_glasses": 0,
+        "steps_count": 0,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Severely inadequate sleep"
+      }
+    },
+    {
+      "input": "drank 6 glasses, walked 9500 steps",
+      "expected": {
+        "sleep_hours": 0,
+        "sleep_quality": 0,
+        "water_glasses": 6,
+        "steps_count": 9500,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Close to daily goals"
+      }
+    },
+    {
+      "input": "slept 7.5 hours, quality 8/10, drank 8 glasses, walked 11000 steps",
+      "expected": {
+        "sleep_hours": 7.5,
+        "sleep_quality": 8,
+        "water_glasses": 8,
+        "steps_count": 11000,
+        "mood": null,
+        "stress_level": null,
+        "notes": "Comprehensive wellness tracking"
+      }
+    }
+  ]
+}

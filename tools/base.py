@@ -245,16 +245,26 @@ class BaseTool(ABC):
             # Range validation
             minimum = schema.get("minimum")
             maximum = schema.get("maximum")
-            if minimum is not None and num_value < minimum:
-                return ValidationResult(
-                    valid=False,
-                    error=f"Parameter {name} must be at least {minimum}"
-                )
-            if maximum is not None and num_value > maximum:
-                return ValidationResult(
-                    valid=False,
-                    error=f"Parameter {name} must be at most {maximum}"
-                )
+            if minimum is not None:
+                try:
+                    min_val = float(minimum)
+                    if num_value < min_val:
+                        return ValidationResult(
+                            valid=False,
+                            error=f"Parameter {name} must be at least {minimum}"
+                        )
+                except (ValueError, TypeError):
+                    pass
+            if maximum is not None:
+                try:
+                    max_val = float(maximum)
+                    if num_value > max_val:
+                        return ValidationResult(
+                            valid=False,
+                            error=f"Parameter {name} must be at most {maximum}"
+                        )
+                except (ValueError, TypeError):
+                    pass
 
             return ValidationResult(valid=True, value=num_value, sanitized=num_value)
 
@@ -270,16 +280,26 @@ class BaseTool(ABC):
             # Range validation
             minimum = schema.get("minimum")
             maximum = schema.get("maximum")
-            if minimum is not None and int_value < minimum:
-                return ValidationResult(
-                    valid=False,
-                    error=f"Parameter {name} must be at least {minimum}"
-                )
-            if maximum is not None and int_value > maximum:
-                return ValidationResult(
-                    valid=False,
-                    error=f"Parameter {name} must be at most {maximum}"
-                )
+            if minimum is not None:
+                try:
+                    min_val = int(minimum)
+                    if int_value < min_val:
+                        return ValidationResult(
+                            valid=False,
+                            error=f"Parameter {name} must be at least {minimum}"
+                        )
+                except (ValueError, TypeError):
+                    pass
+            if maximum is not None:
+                try:
+                    max_val = int(maximum)
+                    if int_value > max_val:
+                        return ValidationResult(
+                            valid=False,
+                            error=f"Parameter {name} must be at most {maximum}"
+                        )
+                except (ValueError, TypeError):
+                    pass
 
             return ValidationResult(valid=True, value=int_value, sanitized=int_value)
 

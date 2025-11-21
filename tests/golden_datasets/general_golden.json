@@ -1,0 +1,336 @@
+{
+  "description": "Golden dataset for general/root agent testing with 30+ test cases covering greetings, questions, support, and general queries",
+  "version": "1.0",
+  "test_cases": [
+    {
+      "input": "hello",
+      "expected": {
+        "intent": "greeting",
+        "response_type": "greeting",
+        "confidence": 0.95,
+        "should_route": false,
+        "response_contains": ["hello", "welcome"]
+      }
+    },
+    {
+      "input": "hi there",
+      "expected": {
+        "intent": "greeting",
+        "response_type": "greeting",
+        "confidence": 0.95,
+        "should_route": false,
+        "response_contains": ["hi", "hello"]
+      }
+    },
+    {
+      "input": "hey",
+      "expected": {
+        "intent": "greeting",
+        "response_type": "greeting",
+        "confidence": 0.9,
+        "should_route": false,
+        "response_contains": ["hey", "hi"]
+      }
+    },
+    {
+      "input": "good morning",
+      "expected": {
+        "intent": "greeting",
+        "response_type": "greeting",
+        "confidence": 0.95,
+        "should_route": false,
+        "response_contains": ["morning", "good"]
+      }
+    },
+    {
+      "input": "how does this work?",
+      "expected": {
+        "intent": "question",
+        "response_type": "explanation",
+        "confidence": 0.85,
+        "should_route": false,
+        "response_contains": ["track", "log", "help"]
+      }
+    },
+    {
+      "input": "what can you do?",
+      "expected": {
+        "intent": "question",
+        "response_type": "capabilities",
+        "confidence": 0.9,
+        "should_route": false,
+        "response_contains": ["nutrition", "fitness", "wellness"]
+      }
+    },
+    {
+      "input": "help",
+      "expected": {
+        "intent": "help_request",
+        "response_type": "help",
+        "confidence": 0.95,
+        "should_route": false,
+        "response_contains": ["help", "commands", "examples"]
+      }
+    },
+    {
+      "input": "I'm struggling",
+      "expected": {
+        "intent": "support_request",
+        "response_type": "support",
+        "confidence": 0.8,
+        "should_route": false,
+        "response_contains": ["support", "help", "struggling"]
+      }
+    },
+    {
+      "input": "this is hard",
+      "expected": {
+        "intent": "support_request",
+        "response_type": "encouragement",
+        "confidence": 0.75,
+        "should_route": false,
+        "response_contains": ["encouragement", "keep going", "progress"]
+      }
+    },
+    {
+      "input": "thank you",
+      "expected": {
+        "intent": "gratitude",
+        "response_type": "gratitude_response",
+        "confidence": 0.9,
+        "should_route": false,
+        "response_contains": ["welcome", "glad", "help"]
+      }
+    },
+    {
+      "input": "thanks",
+      "expected": {
+        "intent": "gratitude",
+        "response_type": "gratitude_response",
+        "confidence": 0.9,
+        "should_route": false,
+        "response_contains": ["welcome", "you're welcome"]
+      }
+    },
+    {
+      "input": "goodbye",
+      "expected": {
+        "intent": "farewell",
+        "response_type": "farewell",
+        "confidence": 0.9,
+        "should_route": false,
+        "response_contains": ["bye", "goodbye", "see you"]
+      }
+    },
+    {
+      "input": "bye",
+      "expected": {
+        "intent": "farewell",
+        "response_type": "farewell",
+        "confidence": 0.9,
+        "should_route": false,
+        "response_contains": ["bye", "goodbye"]
+      }
+    },
+    {
+      "input": "what's my progress?",
+      "expected": {
+        "intent": "analytics",
+        "response_type": "route_to_analytics",
+        "confidence": 0.85,
+        "should_route": true,
+        "route_to": "analytics"
+      }
+    },
+    {
+      "input": "how am I doing?",
+      "expected": {
+        "intent": "analytics",
+        "response_type": "route_to_analytics",
+        "confidence": 0.8,
+        "should_route": true,
+        "route_to": "analytics"
+      }
+    },
+    {
+      "input": "ate breakfast",
+      "expected": {
+        "intent": "nutrition",
+        "response_type": "route_to_nutrition",
+        "confidence": 0.9,
+        "should_route": true,
+        "route_to": "nutrition"
+      }
+    },
+    {
+      "input": "I ate lunch",
+      "expected": {
+        "intent": "nutrition",
+        "response_type": "route_to_nutrition",
+        "confidence": 0.95,
+        "should_route": true,
+        "route_to": "nutrition"
+      }
+    },
+    {
+      "input": "worked out today",
+      "expected": {
+        "intent": "fitness",
+        "response_type": "route_to_fitness",
+        "confidence": 0.85,
+        "should_route": true,
+        "route_to": "fitness"
+      }
+    },
+    {
+      "input": "did squats",
+      "expected": {
+        "intent": "fitness",
+        "response_type": "route_to_fitness",
+        "confidence": 0.9,
+        "should_route": true,
+        "route_to": "fitness"
+      }
+    },
+    {
+      "input": "slept 8 hours",
+      "expected": {
+        "intent": "wellness",
+        "response_type": "route_to_wellness",
+        "confidence": 0.9,
+        "should_route": true,
+        "route_to": "wellness"
+      }
+    },
+    {
+      "input": "drank water",
+      "expected": {
+        "intent": "wellness",
+        "response_type": "route_to_wellness",
+        "confidence": 0.8,
+        "should_route": true,
+        "route_to": "wellness"
+      }
+    },
+    {
+      "input": "walked 10000 steps",
+      "expected": {
+        "intent": "wellness",
+        "response_type": "route_to_wellness",
+        "confidence": 0.85,
+        "should_route": true,
+        "route_to": "wellness"
+      }
+    },
+    {
+      "input": "how many calories did I eat?",
+      "expected": {
+        "intent": "analytics",
+        "response_type": "route_to_analytics",
+        "confidence": 0.9,
+        "should_route": true,
+        "route_to": "analytics"
+      }
+    },
+    {
+      "input": "what's my workout streak?",
+      "expected": {
+        "intent": "analytics",
+        "response_type": "route_to_analytics",
+        "confidence": 0.85,
+        "should_route": true,
+        "route_to": "analytics"
+      }
+    },
+    {
+      "input": "I feel great today",
+      "expected": {
+        "intent": "general_positive",
+        "response_type": "positive_acknowledgment",
+        "confidence": 0.7,
+        "should_route": false,
+        "response_contains": ["great", "awesome", "fantastic"]
+      }
+    },
+    {
+      "input": "not feeling motivated",
+      "expected": {
+        "intent": "support_request",
+        "response_type": "motivation",
+        "confidence": 0.8,
+        "should_route": false,
+        "response_contains": ["motivation", "keep going", "small steps"]
+      }
+    },
+    {
+      "input": "what should I eat?",
+      "expected": {
+        "intent": "question",
+        "response_type": "general_advice",
+        "confidence": 0.75,
+        "should_route": false,
+        "response_contains": ["balanced", "protein", "vegetables"]
+      }
+    },
+    {
+      "input": "how often should I workout?",
+      "expected": {
+        "intent": "question",
+        "response_type": "general_advice",
+        "confidence": 0.8,
+        "should_route": false,
+        "response_contains": ["consistency", "recovery", "goals"]
+      }
+    },
+    {
+      "input": "I'm bored with my routine",
+      "expected": {
+        "intent": "support_request",
+        "response_type": "variety_suggestion",
+        "confidence": 0.75,
+        "should_route": false,
+        "response_contains": ["variety", "new exercises", "progression"]
+      }
+    },
+    {
+      "input": "feeling stressed",
+      "expected": {
+        "intent": "support_request",
+        "response_type": "stress_relief",
+        "confidence": 0.8,
+        "should_route": false,
+        "response_contains": ["stress", "relax", "breathe"]
+      }
+    },
+    {
+      "input": "celebrate my success",
+      "expected": {
+        "intent": "celebration",
+        "response_type": "celebration",
+        "confidence": 0.85,
+        "should_route": false,
+        "response_contains": ["celebrate", "proud", "achievement"]
+      }
+    },
+    {
+      "input": "need accountability",
+      "expected": {
+        "intent": "support_request",
+        "response_type": "accountability",
+        "confidence": 0.75,
+        "should_route": false,
+        "response_contains": ["accountable", "track", "consistent"]
+      }
+    },
+    {
+      "input": "what's the best time to workout?",
+      "expected": {
+        "intent": "question",
+        "response_type": "general_advice",
+        "confidence": 0.8,
+        "should_route": false,
+        "response_contains": ["consistency", "energy", "schedule"]
+      }
+    }
+  ]
+}

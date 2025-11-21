@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block title %}Metrics - Weight Loss Agent Observability{% endblock %}
+{% block page_title %}Detailed Metrics{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <!-- Counters -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Counters</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="countersChart" width="400" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gauges -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Gauges</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="gaugesChart" width="400" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <!-- Histograms -->
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Histograms</h6>
+            </div>
+            <div class="card-body">
+                <div id="histograms-container">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Raw Metrics Data -->
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Raw Metrics Data</h6>
+            </div>
+            <div class="card-body">
+                <pre id="raw-metrics" class="bg-light p-3 small" style="max-height: 400px; overflow-y: auto;">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </pre>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let countersChart = null;
+let gaugesChart = null;
+
+async function updateMetrics() {
+    try {
+        const response = await fetch('/api/metrics');
+        const metrics = await response.json();
+
+        updateCountersChart(metrics);
+        updateGaugesChart(metrics);
+        updateHistograms(metrics);
+        updateRawMetrics(metrics);
+
+    } catch (error) {
+        console.error('Error updating metrics:', error);
+    }
+}
+
+function updateCountersChart(metrics) {
+    const ctx = document.getElementById('countersChart').getContext('2d');
+
+    const counterNames = Object.keys(metrics.counters || {});
+    const counterValues = counterNames.map(name => metrics.counters[name].value);
+
+    if (countersChart) {
+        countersChart.destroy();
+    }
+
+    countersChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: counterNames,
+            datasets: [{
+                label: 'Counter Values',
+                data: counterValues,
+                backgroundColor: 'rgba(75, 192, 192, 0.5)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+}
+
+function updateGaugesChart(metrics) {
+    const ctx = document.getElementById('gaugesChart').getContext('2d');
+
+    const gaugeNames = Object.keys(metrics.gauges || {});
+    const gaugeValues = gaugeNames.map(name => metrics.gauges[name].value);
+
+    if (gaugesChart) {
+        gaugesChart.destroy();
+    }
+
+    gaugesChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: gaugeNames,
+            datasets: [{
+                data: gaugeValues,
+                backgroundColor: [
+                    'rgba(255, 99, 132, 0.5)',
+                    'rgba(54, 162, 235, 0.5)',
+                    'rgba(255, 205, 86, 0.5)',
+                    'rgba(75, 192, 192, 0.5)',
+                    'rgba(153, 102, 255, 0.5)',
+                    'rgba(255, 159, 64, 0.5)'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'right'
+                }
+            }
+        }
+    });
+}
+
+function updateHistograms(metrics) {
+    const container = document.getElementById('histograms-container');
+
+    const histograms = metrics.histograms || {};
+    if (Object.keys(histograms).length === 0) {
+        container.innerHTML = '<div class="text-muted">No histogram data available</div>';
+        return;
+    }
+
+    let html = '<div class="row">';
+    Object.entries(histograms).forEach(([name, hist]) => {
+        const p50 = calculatePercentile(hist, 0.5);
+        const p95 = calculatePercentile(hist, 0.95);
+        const p99 = calculatePercentile(hist, 0.99);
+
+        html += `
+            <div class="col-md-6 mb-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">${name}</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-4">
+                                <div class="h4 mb-0">${hist.count}</div>
+                                <small class="text-muted">Count</small>
+                            </div>
+                            <div class="col-4">
+                                <div class="h4 mb-0">${(hist.sum / hist.count).toFixed(2)}</div>
+                                <small class="text-muted">Avg</small>
+                            </div>
+                            <div class="col-4">
+                                <div class="h4 mb-0">${hist.sum.toFixed(2)}</div>
+                                <small class="text-muted">Sum</small>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="row text-center">
+                            <div class="col-4">
+                                <div class="h6 mb-0">${p50.toFixed(2)}</div>
+                                <small class="text-muted">P50</small>
+                            </div>
+                            <div class="col-4">
+                                <div class="h6 mb-0">${p95.toFixed(2)}</div>
+                                <small class="text-muted">P95</small>
+                            </div>
+                            <div class="col-4">
+                                <div class="h6 mb-0">${p99.toFixed(2)}</div>
+                                <small class="text-muted">P99</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    html += '</div>';
+
+    container.innerHTML = html;
+}
+
+function calculatePercentile(histogram, percentile) {
+    if (histogram.count === 0) return 0;
+
+    const sortedBuckets = Object.keys(histogram.buckets)
+        .map(k => parseFloat(k))
+        .sort((a, b) => a - b);
+
+    const targetCount = percentile * histogram.count;
+    let cumulative = 0;
+
+    for (const bucket of sortedBuckets) {
+        cumulative += histogram.buckets[bucket];
+        if (cumulative >= targetCount) {
+            return bucket;
+        }
+    }
+
+    return sortedBuckets[sortedBuckets.length - 1] || 0;
+}
+
+function updateRawMetrics(metrics) {
+    const pre = document.getElementById('raw-metrics');
+    pre.textContent = JSON.stringify(metrics, null, 2);
+}
+
+// Initialize
+updateMetrics();
+setInterval(updateMetrics, 10000); // Update every 10 seconds
+</script>
+{% endblock %}

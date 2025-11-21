@@ -85,6 +85,18 @@ class Settings(BaseSettings):
     test_mode: bool = Field(default=False, env="TEST_MODE")
     mock_apis: bool = Field(default=False, env="MOCK_APIS")
 
+    # Observability Configuration
+    enable_metrics: bool = Field(default=True, env="ENABLE_METRICS")
+    enable_tracing: bool = Field(default=True, env="ENABLE_TRACING")
+    enable_dashboard: bool = Field(default=True, env="ENABLE_DASHBOARD")
+    dashboard_port: int = Field(default=8080, env="DASHBOARD_PORT")
+    dashboard_host: str = Field(default="localhost", env="DASHBOARD_HOST")
+    metrics_retention_days: int = Field(default=7, env="METRICS_RETENTION_DAYS")
+    traces_retention_days: int = Field(default=7, env="TRACES_RETENTION_DAYS")
+    alerts_enabled: bool = Field(default=True, env="ALERTS_ENABLED")
+    telegram_bot_token_alerts: Optional[str] = Field(default=None, env="TELEGRAM_BOT_TOKEN_ALERTS")
+    telegram_chat_id_alerts: Optional[str] = Field(default=None, env="TELEGRAM_CHAT_ID_ALERTS")
+
     # File Paths
     log_file_path: str = Field(default="logs/bot.log", env="LOG_FILE_PATH")
     database_file_path: str = Field(default="weight_loss_app.db", env="DATABASE_FILE_PATH")

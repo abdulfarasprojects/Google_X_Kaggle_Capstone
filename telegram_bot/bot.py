@@ -58,10 +58,20 @@ async def agent_router(user_id: str, message: str, context: Optional[Dict[str, A
         }
 
     except Exception as e:
-        logger.error(f"Agent routing failed: {e}")
-        return {
-            'text': "❌ Sorry, I encountered an error. Please try again."
-        }
+        error_str = str(e)
+        # Check for ADK comparison type errors
+        if isinstance(e, TypeError) and ("not supported between instances of" in error_str or "'<=' not supported" in error_str or "'>=' not supported" in error_str or "'<' not supported" in error_str or "'>' not supported" in error_str):
+            logger.warning(f"ADK comparison type error for message '{message}': {error_str}")
+            # Fallback response for ADK bug
+            return {
+                'text': "I'm processing your request. Please try again in a moment.",
+                'keyboard': None
+            }
+        else:
+            logger.error(f"Agent routing failed: {e}")
+            return {
+                'text': "❌ Sorry, I encountered an error. Please try again."
+            }
 
 
 class TelegramBot:

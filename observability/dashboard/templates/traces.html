@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+
+{% block title %}Traces - Weight Loss Agent Observability{% endblock %}
+{% block page_title %}Trace Explorer{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Active Traces</h6>
+            </div>
+            <div class="card-body">
+                <div id="active-traces-container">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Completed Traces</h6>
+            </div>
+            <div class="card-body">
+                <div id="completed-traces-container">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Trace Details Modal -->
+<div class="modal fade" id="traceModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Trace Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="trace-details">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadTraces() {
+    try {
+        const response = await fetch('/api/traces');
+        const data = await response.json();
+
+        renderActiveTraces(data.active);
+        renderCompletedTraces(data.completed);
+
+    } catch (error) {
+        console.error('Error loading traces:', error);
+        document.getElementById('active-traces-container').innerHTML = '<div class="alert alert-danger">Error loading traces</div>';
+        document.getElementById('completed-traces-container').innerHTML = '<div class="alert alert-danger">Error loading traces</div>';
+    }
+}
+
+function renderActiveTraces(traces) {
+    const container = document.getElementById('active-traces-container');
+
+    if (traces.length === 0) {
+        container.innerHTML = '<div class="text-muted">No active traces</div>';
+        return;
+    }
+
+    let html = '<div class="row">';
+    traces.forEach(trace => {
+        const startTime = formatTimestamp(trace.start_time);
+        const duration = trace.root_span?.duration_ms ? formatDuration(trace.root_span.duration_ms) : 'Running';
+
+        html += `
+            <div class="col-md-6 mb-3">
+                <div class="card border-primary">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="card-title mb-0">${trace.root_span?.operation || 'Unknown'}</h6>
+                            <span class="badge bg-primary">Active</span>
+                        </div>
+                        <div class="small text-muted mb-2">
+                            <div><i class="fas fa-clock"></i> Started: ${startTime}</div>
+                            <div><i class="fas fa-hourglass-half"></i> Duration: ${duration}</div>
+                        </div>
+                        <div class="mb-2">
+                            <code class="text-primary">${trace.trace_id}</code>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary" onclick="showTraceDetails('${trace.trace_id}')">
+                            View Details
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    html += '</div>';
+
+    container.innerHTML = html;
+}
+
+function renderCompletedTraces(traces) {
+    const container = document.getElementById('completed-traces-container');
+
+    if (traces.length === 0) {
+        container.innerHTML = '<div class="text-muted">No completed traces</div>';
+        return;
+    }
+
+    let html = '<div class="row">';
+    traces.forEach(trace => {
+        const startTime = formatTimestamp(trace.start_time);
+        const endTime = formatTimestamp(trace.end_time);
+        const duration = formatDuration(trace.duration_ms || 0);
+        const status = trace.root_span?.status || 'unknown';
+        const statusClass = status === 'completed' ? 'success' : status === 'error' ? 'danger' : 'warning';
+
+        html += `
+            <div class="col-md-4 mb-3">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="card-title mb-0">${trace.root_span?.operation || 'Unknown'}</h6>
+                            <span class="badge bg-${statusClass}">${status}</span>
+                        </div>
+                        <div class="small text-muted mb-2">
+                            <div><i class="fas fa-play"></i> ${startTime}</div>
+                            <div><i class="fas fa-stop"></i> ${endTime}</div>
+                            <div><i class="fas fa-clock"></i> ${duration}</div>
+                        </div>
+                        <div class="mb-2">
+                            <code class="text-primary small">${trace.trace_id.substring(0, 12)}...</code>
+                        </div>
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-primary" onclick="showTraceDetails('${trace.trace_id}')">
+                                Details
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="exportTrace('${trace.trace_id}')">
+                                Export
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    html += '</div>';
+
+    container.innerHTML = html;
+}
+
+async function showTraceDetails(traceId) {
+    try {
+        const response = await fetch(`/api/trace/${traceId}`);
+        const trace = await response.json();
+
+        renderTraceDetails(trace);
+
+        const modal = new bootstrap.Modal(document.getElementById('traceModal'));
+        modal.show();
+
+    } catch (error) {
+        console.error('Error loading trace details:', error);
+        alert('Error loading trace details');
+    }
+}
+
+function renderTraceDetails(trace) {
+    const container = document.getElementById('trace-details');
+
+    let html = `
+        <div class="mb-3">
+            <h6>Trace Overview</h6>
+            <div class="row">
+                <div class="col-md-6">
+                    <small class="text-muted">Trace ID</small><br>
+                    <code>${trace.trace_id}</code>
+                </div>
+                <div class="col-md-3">
+                    <small class="text-muted">Duration</small><br>
+                    <strong>${formatDuration(trace.duration_ms || 0)}</strong>
+                </div>
+                <div class="col-md-3">
+                    <small class="text-muted">Spans</small><br>
+                    <strong>${trace.all_spans?.length || 0}</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <h6>Span Timeline</h6>
+            <div class="trace-tree">
+    `;
+
+    // Render span tree
+    function renderSpan(span, depth = 0) {
+        const indent = '  '.repeat(depth);
+        const statusClass = span.status === 'completed' ? 'text-success' : span.status === 'error' ? 'text-danger' : 'text-warning';
+        const duration = span.duration_ms ? formatDuration(span.duration_ms) : 'Running';
+
+        html += `
+            <div class="trace-span">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <code class="${statusClass}">${span.operation}</code>
+                        <small class="text-muted ms-2">${span.span_id.substring(0, 8)}...</small>
+                    </div>
+                    <div class="small text-muted">
+                        ${duration}
+                    </div>
+                </div>
+                ${span.tags ? `<div class="small text-muted mt-1">${JSON.stringify(span.tags)}</div>` : ''}
+        `;
+
+        if (span.child_spans) {
+            span.child_spans.forEach(child => renderSpan(child, depth + 1));
+        }
+
+        html += '</div>';
+    }
+
+    if (trace.root_span) {
+        renderSpan(trace.root_span);
+    }
+
+    html += `
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <h6>Raw Trace Data</h6>
+            <pre class="bg-light p-2 small" style="max-height: 300px; overflow-y: auto;"><code>${JSON.stringify(trace, null, 2)}</code></pre>
+        </div>
+    `;
+
+    container.innerHTML = html;
+}
+
+async function exportTrace(traceId) {
+    try {
+        const response = await fetch(`/api/trace/${traceId}`);
+        const trace = await response.json();
+
+        const dataStr = JSON.stringify(trace, null, 2);
+        const dataBlob = new Blob([dataStr], {type: 'application/json'});
+
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(dataBlob);
+        link.download = `trace_${traceId}.json`;
+        link.click();
+
+    } catch (error) {
+        console.error('Error exporting trace:', error);
+        alert('Error exporting trace');
+    }
+}
+
+// Initialize
+loadTraces();
+setInterval(loadTraces, 5000); // Update every 5 seconds
+</script>
+{% endblock %}

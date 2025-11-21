@@ -26,6 +26,10 @@ from tools.intent_classifier import classify_intent
 from tools.sentiment_detector import detect_sentiment
 from tools.response_formatter import format_response
 
+# Observability imports
+from observability.tracing import traced
+from observability.metrics import record_request, record_response_time, record_error
+
 # Note: Sub-agents are NOT imported here to avoid circular imports and initialization delays
 # Routing is now done at the ADK integration layer instead of using agent transfers
 

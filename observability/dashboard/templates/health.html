@@ -1,0 +1,383 @@
+{% extends "base.html" %}
+
+{% block title %}Health - Weight Loss Agent Observability{% endblock %}
+{% block page_title %}System Health Check{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <!-- Overall Health Status -->
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Overall System Health</h6>
+            </div>
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <div class="display-4 mb-2" id="overall-status-icon">
+                                <i class="fas fa-circle text-muted"></i>
+                            </div>
+                            <h4 id="overall-status">Loading...</h4>
+                            <small class="text-muted" id="last-check">Last checked: -</small>
+                        </div>
+                    </div>
+                    <div class="col-md-9">
+                        <div id="health-checks">
+                            <div class="text-center">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <!-- Database Health -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Database Health</h6>
+            </div>
+            <div class="card-body">
+                <div id="database-health">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Health -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">API Configuration</h6>
+            </div>
+            <div class="card-body">
+                <div id="api-health">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <!-- Observability Health -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Observability Systems</h6>
+            </div>
+            <div class="card-body">
+                <div id="observability-health">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Metrics -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Performance Overview</h6>
+            </div>
+            <div class="card-body">
+                <div id="performance-overview">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- System Information -->
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">System Information</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <h6>Application</h6>
+                        <div class="small text-muted">
+                            <div>Environment: <span id="app-env">-</span></div>
+                            <div>Debug Mode: <span id="app-debug">-</span></div>
+                            <div>Log Level: <span id="app-log-level">-</span></div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <h6>Configuration</h6>
+                        <div class="small text-muted">
+                            <div>Dashboard Port: <span id="dashboard-port">-</span></div>
+                            <div>Metrics Enabled: <span id="metrics-enabled">-</span></div>
+                            <div>Tracing Enabled: <span id="tracing-enabled">-</span></div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <h6>Paths</h6>
+                        <div class="small text-muted">
+                            <div>Log Path: <code id="log-path">-</code></div>
+                            <div>Database: <code id="db-path">-</code></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function updateHealth() {
+    try {
+        const response = await fetch('/api/health');
+        const health = await response.json();
+
+        updateOverallHealth(health);
+        updateHealthChecks(health);
+        updateDatabaseHealth(health);
+        updateApiHealth(health);
+        updateObservabilityHealth(health);
+        updatePerformanceOverview();
+        updateSystemInfo();
+
+    } catch (error) {
+        console.error('Error updating health:', error);
+        showHealthError();
+    }
+}
+
+function updateOverallHealth(health) {
+    const statusIcon = document.getElementById('overall-status-icon');
+    const statusText = document.getElementById('overall-status');
+    const lastCheck = document.getElementById('last-check');
+
+    statusText.textContent = health.status.charAt(0).toUpperCase() + health.status.slice(1);
+    lastCheck.textContent = `Last checked: ${formatTimestamp(health.timestamp)}`;
+
+    // Update icon based on status
+    statusIcon.innerHTML = '';
+    let iconClass = 'fas fa-circle ';
+    switch(health.status) {
+        case 'healthy':
+            iconClass += 'text-success';
+            break;
+        case 'warning':
+            iconClass += 'text-warning';
+            break;
+        case 'unhealthy':
+        case 'error':
+            iconClass += 'text-danger';
+            break;
+        default:
+            iconClass += 'text-muted';
+    }
+    statusIcon.innerHTML = `<i class="${iconClass}"></i>`;
+}
+
+function updateHealthChecks(health) {
+    const container = document.getElementById('health-checks');
+
+    let html = '<div class="row">';
+    Object.entries(health.checks || {}).forEach(([checkName, checkData]) => {
+        const statusClass = getStatusClass(checkData.status);
+        const iconClass = checkData.status === 'healthy' ? 'fas fa-check-circle text-success' :
+                         checkData.status === 'warning' ? 'fas fa-exclamation-triangle text-warning' :
+                         'fas fa-times-circle text-danger';
+
+        html += `
+            <div class="col-md-4 mb-3">
+                <div class="card border-${statusClass}">
+                    <div class="card-body text-center">
+                        <i class="${iconClass} fa-2x mb-2"></i>
+                        <h6 class="card-title">${checkName.replace('_', ' ').toUpperCase()}</h6>
+                        <span class="badge bg-${statusClass}">${checkData.status}</span>
+                        ${checkData.error ? `<div class="small text-danger mt-2">${checkData.error}</div>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    html += '</div>';
+
+    container.innerHTML = html;
+}
+
+function updateDatabaseHealth(health) {
+    const container = document.getElementById('database-health');
+    const dbHealth = health.checks?.database || {};
+
+    let html = `
+        <div class="row text-center">
+            <div class="col-6">
+                <div class="h4 mb-0 ${getStatusClass(dbHealth.status)}">${dbHealth.status || 'unknown'}</div>
+                <small class="text-muted">Status</small>
+            </div>
+            <div class="col-6">
+                <div class="h4 mb-0">${dbHealth.database_size_mb || 0} MB</div>
+                <small class="text-muted">Size</small>
+            </div>
+        </div>
+        <hr>
+        <div class="small text-muted">
+            <div>Tables: ${dbHealth.table_count || 0}</div>
+            ${dbHealth.error ? `<div class="text-danger">Error: ${dbHealth.error}</div>` : ''}
+        </div>
+    `;
+
+    container.innerHTML = html;
+}
+
+function updateApiHealth(health) {
+    const container = document.getElementById('api-health');
+    const apiHealth = health.checks?.api_keys || {};
+
+    let html = `
+        <div class="row text-center">
+            <div class="col-12">
+                <div class="h4 mb-0 ${getStatusClass(apiHealth.status)}">${apiHealth.status || 'unknown'}</div>
+                <small class="text-muted">Configuration Status</small>
+            </div>
+        </div>
+        <hr>
+        <div class="small text-muted">
+    `;
+
+    if (apiHealth.issues && apiHealth.issues.length > 0) {
+        html += '<div class="text-warning">Issues:</div><ul>';
+        apiHealth.issues.forEach(issue => {
+            html += `<li>${issue}</li>`;
+        });
+        html += '</ul>';
+    } else {
+        html += '<div class="text-success">All API keys configured</div>';
+    }
+
+    html += '</div>';
+
+    container.innerHTML = html;
+}
+
+function updateObservabilityHealth(health) {
+    const container = document.getElementById('observability-health');
+    const obsHealth = health.observability || {};
+
+    let html = `
+        <div class="row text-center mb-3">
+            <div class="col-4">
+                <div class="h5 mb-0 text-success">✓</div>
+                <small class="text-muted">Metrics</small>
+            </div>
+            <div class="col-4">
+                <div class="h5 mb-0 text-success">✓</div>
+                <small class="text-muted">Tracing</small>
+            </div>
+            <div class="col-4">
+                <div class="h5 mb-0 text-success">✓</div>
+                <small class="text-muted">Dashboard</small>
+            </div>
+        </div>
+        <div class="small text-muted">
+            <div>Active Traces: ${obsHealth.active_traces || 0}</div>
+            <div>Completed Traces: ${obsHealth.completed_traces || 0}</div>
+        </div>
+    `;
+
+    container.innerHTML = html;
+}
+
+async function updatePerformanceOverview() {
+    try {
+        const response = await fetch('/api/performance');
+        const performance = await response.json();
+
+        const container = document.getElementById('performance-overview');
+
+        let html = `
+            <div class="row text-center mb-3">
+                <div class="col-4">
+                    <div class="h5 mb-0">${performance.response_time_percentiles?.p50?.toFixed(1) || 0}s</div>
+                    <small class="text-muted">P50 Response</small>
+                </div>
+                <div class="col-4">
+                    <div class="h5 mb-0">${performance.response_time_percentiles?.p95?.toFixed(1) || 0}s</div>
+                    <small class="text-muted">P95 Response</small>
+                </div>
+                <div class="col-4">
+                    <div class="h5 mb-0">${performance.response_time_percentiles?.p99?.toFixed(1) || 0}s</div>
+                    <small class="text-muted">P99 Response</small>
+                </div>
+            </div>
+        `;
+
+        if (performance.agent_performance && performance.agent_performance.length > 0) {
+            html += '<hr><div class="small text-muted"><div>Agent Performance:</div>';
+            performance.agent_performance.forEach(agent => {
+                html += `<div>${agent.agent}: ${agent.success_rate}% success (${agent.total_requests} requests)</div>`;
+            });
+            html += '</div>';
+        }
+
+        container.innerHTML = html;
+
+    } catch (error) {
+        console.error('Error updating performance overview:', error);
+        document.getElementById('performance-overview').innerHTML = '<div class="text-danger">Error loading performance data</div>';
+    }
+}
+
+function updateSystemInfo() {
+    // Update with settings data - in a real implementation, this would come from the backend
+    document.getElementById('app-env').textContent = 'development'; // From settings
+    document.getElementById('app-debug').textContent = 'true'; // From settings
+    document.getElementById('app-log-level').textContent = 'INFO'; // From settings
+    document.getElementById('dashboard-port').textContent = '8080'; // From settings
+    document.getElementById('metrics-enabled').textContent = 'true'; // From settings
+    document.getElementById('tracing-enabled').textContent = 'true'; // From settings
+    document.getElementById('log-path').textContent = 'logs/bot.log'; // From settings
+    document.getElementById('db-path').textContent = 'weight_loss_app.db'; // From settings
+}
+
+function showHealthError() {
+    const statusText = document.getElementById('overall-status');
+    const statusIcon = document.getElementById('overall-status-icon');
+
+    statusText.textContent = 'Error';
+    statusIcon.innerHTML = '<i class="fas fa-exclamation-triangle text-danger fa-2x"></i>';
+
+    ['health-checks', 'database-health', 'api-health', 'observability-health', 'performance-overview'].forEach(id => {
+        document.getElementById(id).innerHTML = '<div class="text-danger">Unable to load health data</div>';
+    });
+}
+
+// Initialize
+updateHealth();
+setInterval(updateHealth, 30000); // Update every 30 seconds
+</script>
+{% endblock %}

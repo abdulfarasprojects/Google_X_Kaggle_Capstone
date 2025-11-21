@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}Logs - Weight Loss Agent Observability{% endblock %}
+{% block page_title %}Log Viewer{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="row">
+                    <div class="col-md-3">
+                        <select class="form-select form-select-sm" id="level-filter">
+                            <option value="">All Levels</option>
+                            <option value="ERROR">ERROR</option>
+                            <option value="WARNING">WARNING</option>
+                            <option value="INFO">INFO</option>
+                            <option value="DEBUG">DEBUG</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" class="form-control form-control-sm" id="agent-filter" placeholder="Filter by agent">
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" class="form-control form-control-sm" id="user-filter" placeholder="Filter by user ID">
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" class="form-control form-control-sm" id="search-filter" placeholder="Search logs">
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div id="logs-container" style="max-height: 600px; overflow-y: auto;">
+                    <div class="text-center p-4">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <button class="btn btn-sm btn-outline-primary" id="refresh-logs">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+                <small class="text-muted ms-2" id="logs-count">0 logs loaded</small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentLogs = [];
+let filteredLogs = [];
+
+async function loadLogs() {
+    try {
+        const level = document.getElementById('level-filter').value;
+        const agent = document.getElementById('agent-filter').value;
+        const userId = document.getElementById('user-filter').value;
+        const search = document.getElementById('search-filter').value;
+
+        const params = new URLSearchParams();
+        if (level) params.append('level', level);
+        if (agent) params.append('agent', agent);
+        if (userId) params.append('user_id', userId);
+        if (search) params.append('search', search);
+
+        const response = await fetch(`/api/logs?${params}`);
+        const data = await response.json();
+
+        currentLogs = data.logs;
+        filteredLogs = data.logs;
+        renderLogs();
+
+    } catch (error) {
+        console.error('Error loading logs:', error);
+        document.getElementById('logs-container').innerHTML = '<div class="alert alert-danger m-3">Error loading logs</div>';
+    }
+}
+
+function renderLogs() {
+    const container = document.getElementById('logs-container');
+
+    if (filteredLogs.length === 0) {
+        container.innerHTML = '<div class="text-center p-4 text-muted">No logs found</div>';
+        document.getElementById('logs-count').textContent = '0 logs loaded';
+        return;
+    }
+
+    let html = '';
+    filteredLogs.forEach(log => {
+        const levelClass = getLogLevelClass(log.level);
+        const timestamp = formatTimestamp(log.timestamp);
+
+        html += `
+            <div class="log-entry border-bottom p-2">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center mb-1">
+                            <span class="badge bg-${levelClass} me-2">${log.level}</span>
+                            <small class="text-muted">${timestamp}</small>
+                            ${log.correlation_id ? `<code class="ms-2 text-primary">${log.correlation_id.substring(0, 8)}...</code>` : ''}
+                        </div>
+                        <div class="mb-1">${escapeHtml(log.message || 'No message')}</div>
+                        <div class="small text-muted">
+                            ${log.agent ? `<span class="me-3"><i class="fas fa-robot"></i> ${log.agent}</span>` : ''}
+                            ${log.user_id ? `<span class="me-3"><i class="fas fa-user"></i> ${log.user_id}</span>` : ''}
+                            ${log.tool ? `<span class="me-3"><i class="fas fa-tools"></i> ${log.tool}</span>` : ''}
+                            ${log.duration_ms ? `<span class="me-3"><i class="fas fa-clock"></i> ${log.duration_ms.toFixed(1)}ms</span>` : ''}
+                        </div>
+                        ${log.exception ? `<div class="mt-2 p-2 bg-danger bg-opacity-10 rounded small"><pre class="mb-0">${escapeHtml(log.exception)}</pre></div>` : ''}
+                    </div>
+                    <div class="ms-2">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="toggleLogDetails(this)">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="log-details" style="display: none;">
+                    <pre class="small bg-light p-2 mt-2 rounded">${JSON.stringify(log, null, 2)}</pre>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+    document.getElementById('logs-count').textContent = `${filteredLogs.length} logs loaded`;
+}
+
+function getLogLevelClass(level) {
+    switch(level?.toLowerCase()) {
+        case 'error': return 'danger';
+        case 'warning': return 'warning';
+        case 'info': return 'primary';
+        case 'debug': return 'secondary';
+        default: return 'light';
+    }
+}
+
+function toggleLogDetails(button) {
+    const details = button.closest('.log-entry').querySelector('.log-details');
+    const icon = button.querySelector('i');
+
+    if (details.style.display === 'none') {
+        details.style.display = 'block';
+        icon.className = 'fas fa-chevron-up';
+    } else {
+        details.style.display = 'none';
+        icon.className = 'fas fa-chevron-down';
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Event listeners
+document.getElementById('level-filter').addEventListener('change', loadLogs);
+document.getElementById('agent-filter').addEventListener('input', debounce(loadLogs, 300));
+document.getElementById('user-filter').addEventListener('input', debounce(loadLogs, 300));
+document.getElementById('search-filter').addEventListener('input', debounce(loadLogs, 300));
+document.getElementById('refresh-logs').addEventListener('click', loadLogs);
+
+// Debounce function for input fields
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// Initialize
+loadLogs();
+setInterval(loadLogs, 10000); // Auto-refresh every 10 seconds
+</script>
+{% endblock %}

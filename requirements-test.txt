@@ -1,0 +1,37 @@
+# Test dependencies for Weight Loss Tracker Agent evaluation framework
+
+# Core testing framework
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.0.0
+pytest-html>=3.1.0
+pytest-xdist>=3.0.0
+
+# Mocking and fixtures
+# unittest-mock>=1.0.0  # This is part of Python standard library as unittest.mock
+
+# Performance testing
+psutil>=5.9.0
+
+# Code coverage
+coverage>=7.0.0
+
+# Type checking for tests
+mypy>=1.0.0
+
+# Linting
+flake8>=6.0.0
+black>=23.0.0
+
+# Test data generation
+faker>=18.0.0
+
+# API testing (if needed)
+httpx>=0.24.0
+responses>=0.23.0
+
+# Database testing
+pytest-postgresql>=5.0.0
+
+# Load testing
+locust>=2.15.0

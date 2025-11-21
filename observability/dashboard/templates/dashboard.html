@@ -1,0 +1,355 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Weight Loss Agent Observability{% endblock %}
+{% block page_title %}Dashboard Overview{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <!-- Key Metrics Cards -->
+    <div class="col-md-3">
+        <div class="card metric-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title text-muted">Total Requests</h6>
+                        <h3 class="mb-0" id="total-requests">-</h3>
+                    </div>
+                    <div class="text-primary">
+                        <i class="fas fa-chart-line fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card metric-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title text-muted">Error Rate</h6>
+                        <h3 class="mb-0" id="error-rate">-</h3>
+                    </div>
+                    <div class="text-danger">
+                        <i class="fas fa-exclamation-triangle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card metric-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title text-muted">Active Sessions</h6>
+                        <h3 class="mb-0" id="active-sessions">-</h3>
+                    </div>
+                    <div class="text-success">
+                        <i class="fas fa-users fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card metric-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title text-muted">Avg Response Time</h6>
+                        <h3 class="mb-0" id="avg-response-time">-</h3>
+                    </div>
+                    <div class="text-info">
+                        <i class="fas fa-clock fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <!-- Response Time Chart -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Response Time Distribution</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="responseTimeChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Agent Performance Chart -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Agent Performance</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="agentPerformanceChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <!-- Recent Activity -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Recent Activity</h6>
+            </div>
+            <div class="card-body">
+                <div id="recent-activity" class="small">
+                    <div class="text-muted">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Health -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">System Health</h6>
+            </div>
+            <div class="card-body">
+                <div id="system-health">
+                    <div class="text-muted">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Active Traces -->
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Active Traces</h6>
+            </div>
+            <div class="card-body">
+                <div id="active-traces">
+                    <div class="text-muted">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let responseTimeChart = null;
+let agentPerformanceChart = null;
+
+async function updateDashboard() {
+    try {
+        // Update metrics
+        const metricsResponse = await fetch('/api/metrics');
+        const metrics = await metricsResponse.json();
+
+        // Update key metrics
+        document.getElementById('total-requests').textContent = metrics.computed?.total_requests || 0;
+        document.getElementById('error-rate').textContent = `${metrics.computed?.error_rate_percent || 0}%`;
+        document.getElementById('active-sessions').textContent = metrics.gauges?.active_sessions?.value || 0;
+
+        // Calculate average response time
+        const responseTimeHist = Object.values(metrics.histograms || {}).find(h => h.description.includes('Response time'));
+        if (responseTimeHist) {
+            const avgResponseTime = responseTimeHist.sum / responseTimeHist.count;
+            document.getElementById('avg-response-time').textContent = formatDuration(avgResponseTime * 1000);
+        }
+
+        // Update response time chart
+        updateResponseTimeChart(metrics);
+
+        // Update agent performance chart
+        updateAgentPerformanceChart(metrics);
+
+        // Update recent activity
+        updateRecentActivity();
+
+        // Update system health
+        updateSystemHealth();
+
+        // Update active traces
+        updateActiveTraces();
+
+    } catch (error) {
+        console.error('Error updating dashboard:', error);
+    }
+}
+
+function updateResponseTimeChart(metrics) {
+    const ctx = document.getElementById('responseTimeChart').getContext('2d');
+
+    const responseTimeHist = Object.values(metrics.histograms || {}).find(h => h.description.includes('Response time'));
+    if (!responseTimeHist) return;
+
+    const buckets = ['0.1s', '0.5s', '1.0s', '2.5s', '5.0s', '10.0s', '30.0s'];
+    const data = buckets.map((bucket, i) => responseTimeHist.buckets[i] || 0);
+
+    if (responseTimeChart) {
+        responseTimeChart.destroy();
+    }
+
+    responseTimeChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: buckets,
+            datasets: [{
+                label: 'Request Count',
+                data: data,
+                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+function updateAgentPerformanceChart(metrics) {
+    const ctx = document.getElementById('agentPerformanceChart').getContext('2d');
+
+    // This would need to be calculated from metrics data
+    // For now, show placeholder
+    const agents = ['nutrition', 'fitness', 'wellness', 'analytics'];
+    const performance = agents.map(() => Math.random() * 100);
+
+    if (agentPerformanceChart) {
+        agentPerformanceChart.destroy();
+    }
+
+    agentPerformanceChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: agents,
+            datasets: [{
+                data: performance,
+                backgroundColor: [
+                    'rgba(255, 99, 132, 0.5)',
+                    'rgba(54, 162, 235, 0.5)',
+                    'rgba(255, 205, 86, 0.5)',
+                    'rgba(75, 192, 192, 0.5)'
+                ]
+            }]
+        },
+        options: {
+            responsive: true
+        }
+    });
+}
+
+async function updateRecentActivity() {
+    try {
+        const response = await fetch('/api/logs?limit=5');
+        const data = await response.json();
+
+        const activityDiv = document.getElementById('recent-activity');
+        activityDiv.innerHTML = '';
+
+        data.logs.forEach(log => {
+            const logDiv = document.createElement('div');
+            logDiv.className = 'mb-2 p-2 bg-light rounded small';
+            logDiv.innerHTML = `
+                <div class="d-flex justify-content-between">
+                    <span class="badge bg-${getLogLevelBadge(log.level)}">${log.level}</span>
+                    <small class="text-muted">${formatTimestamp(log.timestamp)}</small>
+                </div>
+                <div class="mt-1">${log.message || 'No message'}</div>
+                ${log.agent ? `<small class="text-primary">Agent: ${log.agent}</small>` : ''}
+            `;
+            activityDiv.appendChild(logDiv);
+        });
+    } catch (error) {
+        console.error('Error updating recent activity:', error);
+    }
+}
+
+async function updateSystemHealth() {
+    try {
+        const response = await fetch('/api/health');
+        const health = await response.json();
+
+        const healthDiv = document.getElementById('system-health');
+        healthDiv.innerHTML = `
+            <div class="mb-2">
+                <span class="badge bg-${health.status === 'healthy' ? 'success' : health.status === 'warning' ? 'warning' : 'danger'}">
+                    ${health.status.toUpperCase()}
+                </span>
+            </div>
+            <div class="small">
+                <div>Database: <span class="${getStatusClass(health.checks?.database?.status)}">${health.checks?.database?.status || 'unknown'}</span></div>
+                <div>API Keys: <span class="${getStatusClass(health.checks?.api_keys?.status)}">${health.checks?.api_keys?.status || 'unknown'}</span></div>
+                <div>Observability: <span class="status-healthy">healthy</span></div>
+            </div>
+        `;
+    } catch (error) {
+        console.error('Error updating system health:', error);
+    }
+}
+
+async function updateActiveTraces() {
+    try {
+        const response = await fetch('/api/traces');
+        const traces = await response.json();
+
+        const tracesDiv = document.getElementById('active-traces');
+        tracesDiv.innerHTML = '';
+
+        if (traces.active.length === 0) {
+            tracesDiv.innerHTML = '<div class="text-muted">No active traces</div>';
+            return;
+        }
+
+        traces.active.slice(0, 3).forEach(trace => {
+            const traceDiv = document.createElement('div');
+            traceDiv.className = 'mb-2 p-2 bg-light rounded small';
+            traceDiv.innerHTML = `
+                <div class="d-flex justify-content-between">
+                    <code class="text-primary">${trace.trace_id.substring(0, 8)}...</code>
+                    <small class="text-muted">${formatTimestamp(trace.start_time)}</small>
+                </div>
+                <div class="mt-1">${trace.root_span?.operation || 'Unknown operation'}</div>
+            `;
+            tracesDiv.appendChild(traceDiv);
+        });
+
+        if (traces.active.length > 3) {
+            tracesDiv.innerHTML += `<div class="text-muted small">... and ${traces.active.length - 3} more</div>`;
+        }
+    } catch (error) {
+        console.error('Error updating active traces:', error);
+    }
+}
+
+function getLogLevelBadge(level) {
+    switch(level?.toLowerCase()) {
+        case 'error': return 'danger';
+        case 'warning': return 'warning';
+        case 'info': return 'info';
+        case 'debug': return 'secondary';
+        default: return 'light';
+    }
+}
+
+// Initialize dashboard
+updateDashboard();
+setInterval(updateDashboard, 5000); // Update every 5 seconds
+</script>
+{% endblock %}

@@ -14,6 +14,10 @@ from sqlalchemy.orm import Session
 from database.init import get_db_session
 from database.models import MealLog, UserProfile
 
+# Observability imports
+from observability.tracing import traced
+from observability.metrics import record_request, record_response_time, record_error
+
 logger = logging.getLogger(__name__)
 
 
@@ -25,6 +29,7 @@ class MealManager:
     """
 
     @staticmethod
+    @traced("create_meal_log")
     def create_meal_log(
         user_id: str,
         meal_type: str,
@@ -124,6 +129,7 @@ class MealManager:
             return []
 
     @staticmethod
+    @traced("get_daily_nutrition_summary")
     def get_daily_nutrition_summary(user_id: str, target_date: date) -> Dict[str, Any]:
         """
         Get nutrition summary for a specific day.
@@ -175,6 +181,7 @@ class MealManager:
             }
 
     @staticmethod
+    @traced("get_nutrition_analytics")
     def get_nutrition_analytics(
         user_id: str,
         days: int = 30

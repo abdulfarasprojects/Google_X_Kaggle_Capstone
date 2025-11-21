@@ -13,6 +13,10 @@ from dataclasses import dataclass
 
 from tools.base import BaseTool, ToolResult
 
+# Observability imports
+from observability.tracing import traced
+from observability.metrics import record_request, record_response_time, record_error
+
 logger = logging.getLogger(__name__)
 
 
@@ -312,6 +316,7 @@ batch_parser_tool = BatchFoodParserTool()
 
 
 # Convenience function for direct use
+@traced("parse_meal_batch")
 async def parse_meal_batch(
     food_descriptions: List[str],
     meal_type: str,

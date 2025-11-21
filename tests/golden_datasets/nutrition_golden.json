@@ -1,0 +1,653 @@
+{
+  "description": "Golden dataset for nutrition agent testing with 50+ test cases covering meals, misspellings, and edge cases",
+  "version": "1.0",
+  "test_cases": [
+    {
+      "input": "I ate 2 eggs for breakfast",
+      "expected": {
+        "food_items": [
+          {"name": "egg", "quantity": 2, "unit": "piece", "calories": 140, "protein_g": 12}
+        ],
+        "calories": 140,
+        "protein_g": 12,
+        "confidence": 0.95
+      }
+    },
+    {
+      "input": "breakfast: 2 eggs, toast, coffee",
+      "expected": {
+        "food_items": [
+          {"name": "egg", "quantity": 2, "unit": "piece", "calories": 140, "protein_g": 12},
+          {"name": "toast", "quantity": 1, "unit": "slice", "calories": 70, "protein_g": 3},
+          {"name": "coffee", "quantity": 1, "unit": "cup", "calories": 2, "protein_g": 0}
+        ],
+        "calories": 212,
+        "protein_g": 15,
+        "confidence": 0.88
+      }
+    },
+    {
+      "input": "chicken",
+      "expected": {
+        "food_items": [
+          {"name": "chicken breast", "quantity": 100, "unit": "gram", "calories": 165, "protein_g": 31}
+        ],
+        "calories": 165,
+        "protein_g": 31,
+        "confidence": 0.7
+      }
+    },
+    {
+      "input": "chiken",
+      "expected": {
+        "food_items": [
+          {"name": "chicken breast", "quantity": 100, "unit": "gram", "calories": 165, "protein_g": 31}
+        ],
+        "calories": 165,
+        "protein_g": 31,
+        "confidence": 0.6
+      }
+    },
+    {
+      "input": "bannana",
+      "expected": {
+        "food_items": [
+          {"name": "banana", "quantity": 1, "unit": "piece", "calories": 105, "protein_g": 1.3}
+        ],
+        "calories": 105,
+        "protein_g": 1.3,
+        "confidence": 0.6
+      }
+    },
+    {
+      "input": "1 egg",
+      "expected": {
+        "food_items": [
+          {"name": "egg", "quantity": 1, "unit": "piece", "calories": 70, "protein_g": 6}
+        ],
+        "calories": 70,
+        "protein_g": 6,
+        "confidence": 0.95
+      }
+    },
+    {
+      "input": "10 eggs",
+      "expected": {
+        "food_items": [
+          {"name": "egg", "quantity": 10, "unit": "piece", "calories": 700, "protein_g": 60}
+        ],
+        "calories": 700,
+        "protein_g": 60,
+        "confidence": 0.9
+      }
+    },
+    {
+      "input": "ate a sandwich with turkey and cheese",
+      "expected": {
+        "food_items": [
+          {"name": "turkey", "quantity": 50, "unit": "gram", "calories": 135, "protein_g": 30},
+          {"name": "cheese", "quantity": 30, "unit": "gram", "calories": 120, "protein_g": 7},
+          {"name": "bread", "quantity": 2, "unit": "slice", "calories": 140, "protein_g": 6}
+        ],
+        "calories": 395,
+        "protein_g": 43,
+        "confidence": 0.75
+      }
+    },
+    {
+      "input": "lunch was pasta with tomato sauce",
+      "expected": {
+        "food_items": [
+          {"name": "pasta", "quantity": 100, "unit": "gram", "calories": 157, "protein_g": 5.8},
+          {"name": "tomato sauce", "quantity": 50, "unit": "gram", "calories": 24, "protein_g": 1.2}
+        ],
+        "calories": 181,
+        "protein_g": 7,
+        "confidence": 0.8
+      }
+    },
+    {
+      "input": "dinner: salmon, rice, broccoli",
+      "expected": {
+        "food_items": [
+          {"name": "salmon", "quantity": 150, "unit": "gram", "calories": 353, "protein_g": 40},
+          {"name": "rice", "quantity": 100, "unit": "gram", "calories": 130, "protein_g": 2.7},
+          {"name": "broccoli", "quantity": 100, "unit": "gram", "calories": 34, "protein_g": 2.8}
+        ],
+        "calories": 517,
+        "protein_g": 45.5,
+        "confidence": 0.85
+      }
+    },
+    {
+      "input": "snack: apple and peanut butter",
+      "expected": {
+        "food_items": [
+          {"name": "apple", "quantity": 1, "unit": "piece", "calories": 95, "protein_g": 0.5},
+          {"name": "peanut butter", "quantity": 2, "unit": "tablespoon", "calories": 190, "protein_g": 8}
+        ],
+        "calories": 285,
+        "protein_g": 8.5,
+        "confidence": 0.9
+      }
+    },
+    {
+      "input": "had oatmeal with blueberries",
+      "expected": {
+        "food_items": [
+          {"name": "oatmeal", "quantity": 40, "unit": "gram", "calories": 150, "protein_g": 5},
+          {"name": "blueberries", "quantity": 50, "unit": "gram", "calories": 29, "protein_g": 0.4}
+        ],
+        "calories": 179,
+        "protein_g": 5.4,
+        "confidence": 0.82
+      }
+    },
+    {
+      "input": "ate 200g of chicken breast",
+      "expected": {
+        "food_items": [
+          {"name": "chicken breast", "quantity": 200, "unit": "gram", "calories": 330, "protein_g": 62}
+        ],
+        "calories": 330,
+        "protein_g": 62,
+        "confidence": 0.95
+      }
+    },
+    {
+      "input": "1 cup of rice",
+      "expected": {
+        "food_items": [
+          {"name": "rice", "quantity": 185, "unit": "gram", "calories": 205, "protein_g": 4.3}
+        ],
+        "calories": 205,
+        "protein_g": 4.3,
+        "confidence": 0.9
+      }
+    },
+    {
+      "input": "half a cup of quinoa",
+      "expected": {
+        "food_items": [
+          {"name": "quinoa", "quantity": 92.5, "unit": "gram", "calories": 111, "protein_g": 4}
+        ],
+        "calories": 111,
+        "protein_g": 4,
+        "confidence": 0.85
+      }
+    },
+    {
+      "input": "3 slices of pizza",
+      "expected": {
+        "food_items": [
+          {"name": "pizza", "quantity": 3, "unit": "slice", "calories": 750, "protein_g": 30}
+        ],
+        "calories": 750,
+        "protein_g": 30,
+        "confidence": 0.8
+      }
+    },
+    {
+      "input": "bowl of soup",
+      "expected": {
+        "food_items": [
+          {"name": "soup", "quantity": 1, "unit": "bowl", "calories": 150, "protein_g": 8}
+        ],
+        "calories": 150,
+        "protein_g": 8,
+        "confidence": 0.7
+      }
+    },
+    {
+      "input": "ate tuna salad",
+      "expected": {
+        "food_items": [
+          {"name": "tuna", "quantity": 100, "unit": "gram", "calories": 128, "protein_g": 29},
+          {"name": "lettuce", "quantity": 50, "unit": "gram", "calories": 8, "protein_g": 0.7},
+          {"name": "olive oil", "quantity": 1, "unit": "tablespoon", "calories": 119, "protein_g": 0}
+        ],
+        "calories": 255,
+        "protein_g": 29.7,
+        "confidence": 0.75
+      }
+    },
+    {
+      "input": "protein shake with banana",
+      "expected": {
+        "food_items": [
+          {"name": "protein powder", "quantity": 30, "unit": "gram", "calories": 120, "protein_g": 25},
+          {"name": "banana", "quantity": 1, "unit": "piece", "calories": 105, "protein_g": 1.3},
+          {"name": "milk", "quantity": 200, "unit": "milliliter", "calories": 122, "protein_g": 8}
+        ],
+        "calories": 347,
+        "protein_g": 34.3,
+        "confidence": 0.8
+      }
+    },
+    {
+      "input": "ate 2 scoops of ice cream",
+      "expected": {
+        "food_items": [
+          {"name": "ice cream", "quantity": 2, "unit": "scoop", "calories": 280, "protein_g": 6}
+        ],
+        "calories": 280,
+        "protein_g": 6,
+        "confidence": 0.85
+      }
+    },
+    {
+      "input": "had greek yogurt with honey",
+      "expected": {
+        "food_items": [
+          {"name": "greek yogurt", "quantity": 150, "unit": "gram", "calories": 100, "protein_g": 15},
+          {"name": "honey", "quantity": 1, "unit": "tablespoon", "calories": 64, "protein_g": 0.1}
+        ],
+        "calories": 164,
+        "protein_g": 15.1,
+        "confidence": 0.88
+      }
+    },
+    {
+      "input": "ate steak and potatoes",
+      "expected": {
+        "food_items": [
+          {"name": "beef steak", "quantity": 150, "unit": "gram", "calories": 375, "protein_g": 45},
+          {"name": "potatoes", "quantity": 200, "unit": "gram", "calories": 164, "protein_g": 4.6}
+        ],
+        "calories": 539,
+        "protein_g": 49.6,
+        "confidence": 0.82
+      }
+    },
+    {
+      "input": "smoothie with spinach, banana, and protein",
+      "expected": {
+        "food_items": [
+          {"name": "spinach", "quantity": 30, "unit": "gram", "calories": 7, "protein_g": 0.9},
+          {"name": "banana", "quantity": 1, "unit": "piece", "calories": 105, "protein_g": 1.3},
+          {"name": "protein powder", "quantity": 25, "unit": "gram", "calories": 100, "protein_g": 20}
+        ],
+        "calories": 212,
+        "protein_g": 22.2,
+        "confidence": 0.78
+      }
+    },
+    {
+      "input": "had cereal with milk",
+      "expected": {
+        "food_items": [
+          {"name": "cereal", "quantity": 40, "unit": "gram", "calories": 150, "protein_g": 3},
+          {"name": "milk", "quantity": 200, "unit": "milliliter", "calories": 122, "protein_g": 8}
+        ],
+        "calories": 272,
+        "protein_g": 11,
+        "confidence": 0.85
+      }
+    },
+    {
+      "input": "ate sushi - 6 pieces",
+      "expected": {
+        "food_items": [
+          {"name": "sushi", "quantity": 6, "unit": "piece", "calories": 240, "protein_g": 12}
+        ],
+        "calories": 240,
+        "protein_g": 12,
+        "confidence": 0.8
+      }
+    },
+    {
+      "input": "burrito with beans and rice",
+      "expected": {
+        "food_items": [
+          {"name": "beans", "quantity": 100, "unit": "gram", "calories": 132, "protein_g": 7.5},
+          {"name": "rice", "quantity": 100, "unit": "gram", "calories": 130, "protein_g": 2.7},
+          {"name": "tortilla", "quantity": 1, "unit": "piece", "calories": 140, "protein_g": 4}
+        ],
+        "calories": 402,
+        "protein_g": 14.2,
+        "confidence": 0.75
+      }
+    },
+    {
+      "input": "ate avocado toast",
+      "expected": {
+        "food_items": [
+          {"name": "avocado", "quantity": 0.5, "unit": "piece", "calories": 120, "protein_g": 1.5},
+          {"name": "toast", "quantity": 1, "unit": "slice", "calories": 70, "protein_g": 3}
+        ],
+        "calories": 190,
+        "protein_g": 4.5,
+        "confidence": 0.88
+      }
+    },
+    {
+      "input": "had cottage cheese",
+      "expected": {
+        "food_items": [
+          {"name": "cottage cheese", "quantity": 100, "unit": "gram", "calories": 98, "protein_g": 11}
+        ],
+        "calories": 98,
+        "protein_g": 11,
+        "confidence": 0.9
+      }
+    },
+    {
+      "input": "ate almonds - handful",
+      "expected": {
+        "food_items": [
+          {"name": "almonds", "quantity": 28, "unit": "gram", "calories": 161, "protein_g": 6}
+        ],
+        "calories": 161,
+        "protein_g": 6,
+        "confidence": 0.8
+      }
+    },
+    {
+      "input": "had a salad with dressing",
+      "expected": {
+        "food_items": [
+          {"name": "lettuce", "quantity": 100, "unit": "gram", "calories": 15, "protein_g": 1.4},
+          {"name": "tomato", "quantity": 50, "unit": "gram", "calories": 11, "protein_g": 0.6},
+          {"name": "salad dressing", "quantity": 2, "unit": "tablespoon", "calories": 140, "protein_g": 0}
+        ],
+        "calories": 166,
+        "protein_g": 2,
+        "confidence": 0.7
+      }
+    },
+    {
+      "input": "ate pancakes with syrup",
+      "expected": {
+        "food_items": [
+          {"name": "pancakes", "quantity": 2, "unit": "piece", "calories": 140, "protein_g": 4},
+          {"name": "syrup", "quantity": 2, "unit": "tablespoon", "calories": 110, "protein_g": 0}
+        ],
+        "calories": 250,
+        "protein_g": 4,
+        "confidence": 0.85
+      }
+    },
+    {
+      "input": "had grilled cheese sandwich",
+      "expected": {
+        "food_items": [
+          {"name": "bread", "quantity": 2, "unit": "slice", "calories": 140, "protein_g": 6},
+          {"name": "cheese", "quantity": 50, "unit": "gram", "calories": 200, "protein_g": 12}
+        ],
+        "calories": 340,
+        "protein_g": 18,
+        "confidence": 0.88
+      }
+    },
+    {
+      "input": "ate chili con carne",
+      "expected": {
+        "food_items": [
+          {"name": "ground beef", "quantity": 100, "unit": "gram", "calories": 250, "protein_g": 25},
+          {"name": "beans", "quantity": 100, "unit": "gram", "calories": 132, "protein_g": 7.5},
+          {"name": "tomato sauce", "quantity": 50, "unit": "gram", "calories": 24, "protein_g": 1.2}
+        ],
+        "calories": 406,
+        "protein_g": 33.7,
+        "confidence": 0.75
+      }
+    },
+    {
+      "input": "had popcorn - large bag",
+      "expected": {
+        "food_items": [
+          {"name": "popcorn", "quantity": 100, "unit": "gram", "calories": 387, "protein_g": 12.9}
+        ],
+        "calories": 387,
+        "protein_g": 12.9,
+        "confidence": 0.8
+      }
+    },
+    {
+      "input": "ate chocolate bar",
+      "expected": {
+        "food_items": [
+          {"name": "chocolate", "quantity": 50, "unit": "gram", "calories": 250, "protein_g": 3}
+        ],
+        "calories": 250,
+        "protein_g": 3,
+        "confidence": 0.9
+      }
+    },
+    {
+      "input": "had trail mix",
+      "expected": {
+        "food_items": [
+          {"name": "nuts", "quantity": 30, "unit": "gram", "calories": 170, "protein_g": 6},
+          {"name": "dried fruit", "quantity": 20, "unit": "gram", "calories": 70, "protein_g": 1}
+        ],
+        "calories": 240,
+        "protein_g": 7,
+        "confidence": 0.75
+      }
+    },
+    {
+      "input": "ate bagel with cream cheese",
+      "expected": {
+        "food_items": [
+          {"name": "bagel", "quantity": 1, "unit": "piece", "calories": 250, "protein_g": 9},
+          {"name": "cream cheese", "quantity": 2, "unit": "tablespoon", "calories": 100, "protein_g": 2}
+        ],
+        "calories": 350,
+        "protein_g": 11,
+        "confidence": 0.88
+      }
+    },
+    {
+      "input": "had vegetable stir fry",
+      "expected": {
+        "food_items": [
+          {"name": "broccoli", "quantity": 50, "unit": "gram", "calories": 17, "protein_g": 1.4},
+          {"name": "carrots", "quantity": 50, "unit": "gram", "calories": 21, "protein_g": 0.5},
+          {"name": "bell pepper", "quantity": 50, "unit": "gram", "calories": 12, "protein_g": 0.5},
+          {"name": "soy sauce", "quantity": 1, "unit": "tablespoon", "calories": 10, "protein_g": 1}
+        ],
+        "calories": 60,
+        "protein_g": 3.4,
+        "confidence": 0.7
+      }
+    },
+    {
+      "input": "ate french fries",
+      "expected": {
+        "food_items": [
+          {"name": "french fries", "quantity": 150, "unit": "gram", "calories": 420, "protein_g": 5}
+        ],
+        "calories": 420,
+        "protein_g": 5,
+        "confidence": 0.85
+      }
+    },
+    {
+      "input": "had chicken nuggets - 6 pieces",
+      "expected": {
+        "food_items": [
+          {"name": "chicken nuggets", "quantity": 6, "unit": "piece", "calories": 240, "protein_g": 12}
+        ],
+        "calories": 240,
+        "protein_g": 12,
+        "confidence": 0.9
+      }
+    },
+    {
+      "input": "ate spaghetti bolognese",
+      "expected": {
+        "food_items": [
+          {"name": "spaghetti", "quantity": 100, "unit": "gram", "calories": 157, "protein_g": 5.8},
+          {"name": "ground beef", "quantity": 100, "unit": "gram", "calories": 250, "protein_g": 25},
+          {"name": "tomato sauce", "quantity": 100, "unit": "gram", "calories": 48, "protein_g": 2.4}
+        ],
+        "calories": 455,
+        "protein_g": 33.2,
+        "confidence": 0.82
+      }
+    },
+    {
+      "input": "had muesli with yogurt",
+      "expected": {
+        "food_items": [
+          {"name": "muesli", "quantity": 50, "unit": "gram", "calories": 190, "protein_g": 5},
+          {"name": "yogurt", "quantity": 150, "unit": "gram", "calories": 90, "protein_g": 4}
+        ],
+        "calories": 280,
+        "protein_g": 9,
+        "confidence": 0.85
+      }
+    },
+    {
+      "input": "ate fish and chips",
+      "expected": {
+        "food_items": [
+          {"name": "fish", "quantity": 150, "unit": "gram", "calories": 195, "protein_g": 30},
+          {"name": "french fries", "quantity": 150, "unit": "gram", "calories": 420, "protein_g": 5}
+        ],
+        "calories": 615,
+        "protein_g": 35,
+        "confidence": 0.8
+      }
+    },
+    {
+      "input": "had hummus with pita",
+      "expected": {
+        "food_items": [
+          {"name": "hummus", "quantity": 50, "unit": "gram", "calories": 166, "protein_g": 4.5},
+          {"name": "pita bread", "quantity": 1, "unit": "piece", "calories": 170, "protein_g": 6}
+        ],
+        "calories": 336,
+        "protein_g": 10.5,
+        "confidence": 0.88
+      }
+    },
+    {
+      "input": "ate lasagna",
+      "expected": {
+        "food_items": [
+          {"name": "lasagna", "quantity": 200, "unit": "gram", "calories": 320, "protein_g": 20}
+        ],
+        "calories": 320,
+        "protein_g": 20,
+        "confidence": 0.8
+      }
+    },
+    {
+      "input": "had fruit salad",
+      "expected": {
+        "food_items": [
+          {"name": "apple", "quantity": 1, "unit": "piece", "calories": 95, "protein_g": 0.5},
+          {"name": "orange", "quantity": 1, "unit": "piece", "calories": 62, "protein_g": 1.2},
+          {"name": "grapes", "quantity": 50, "unit": "gram", "calories": 35, "protein_g": 0.4}
+        ],
+        "calories": 192,
+        "protein_g": 2.1,
+        "confidence": 0.85
+      }
+    },
+    {
+      "input": "ate curry with rice",
+      "expected": {
+        "food_items": [
+          {"name": "curry", "quantity": 200, "unit": "gram", "calories": 180, "protein_g": 12},
+          {"name": "rice", "quantity": 100, "unit": "gram", "calories": 130, "protein_g": 2.7}
+        ],
+        "calories": 310,
+        "protein_g": 14.7,
+        "confidence": 0.75
+      }
+    },
+    {
+      "input": "had tacos - 2 pieces",
+      "expected": {
+        "food_items": [
+          {"name": "tortilla", "quantity": 2, "unit": "piece", "calories": 140, "protein_g": 4},
+          {"name": "ground beef", "quantity": 100, "unit": "gram", "calories": 250, "protein_g": 25},
+          {"name": "lettuce", "quantity": 20, "unit": "gram", "calories": 3, "protein_g": 0.3}
+        ],
+        "calories": 393,
+        "protein_g": 29.3,
+        "confidence": 0.8
+      }
+    },
+    {
+      "input": "ate dumplings",
+      "expected": {
+        "food_items": [
+          {"name": "dumplings", "quantity": 6, "unit": "piece", "calories": 240, "protein_g": 10}
+        ],
+        "calories": 240,
+        "protein_g": 10,
+        "confidence": 0.75
+      }
+    },
+    {
+      "input": "had poke bowl",
+      "expected": {
+        "food_items": [
+          {"name": "salmon", "quantity": 100, "unit": "gram", "calories": 206, "protein_g": 25},
+          {"name": "rice", "quantity": 100, "unit": "gram", "calories": 130, "protein_g": 2.7},
+          {"name": "avocado", "quantity": 50, "unit": "gram", "calories": 80, "protein_g": 1}
+        ],
+        "calories": 416,
+        "protein_g": 28.7,
+        "confidence": 0.82
+      }
+    },
+    {
+      "input": "ate falafel wrap",
+      "expected": {
+        "food_items": [
+          {"name": "falafel", "quantity": 100, "unit": "gram", "calories": 333, "protein_g": 13},
+          {"name": "pita bread", "quantity": 1, "unit": "piece", "calories": 170, "protein_g": 6},
+          {"name": "tahini", "quantity": 1, "unit": "tablespoon", "calories": 89, "protein_g": 2.6}
+        ],
+        "calories": 592,
+        "protein_g": 21.6,
+        "confidence": 0.78
+      }
+    },
+    {
+      "input": "had bibimbap",
+      "expected": {
+        "food_items": [
+          {"name": "rice", "quantity": 150, "unit": "gram", "calories": 195, "protein_g": 4},
+          {"name": "beef", "quantity": 50, "unit": "gram", "calories": 125, "protein_g": 12.5},
+          {"name": "vegetables", "quantity": 100, "unit": "gram", "calories": 50, "protein_g": 3},
+          {"name": "egg", "quantity": 1, "unit": "piece", "calories": 70, "protein_g": 6}
+        ],
+        "calories": 440,
+        "protein_g": 25.5,
+        "confidence": 0.7
+      }
+    },
+    {
+      "input": "ate pad thai",
+      "expected": {
+        "food_items": [
+          {"name": "rice noodles", "quantity": 100, "unit": "gram", "calories": 157, "protein_g": 3},
+          {"name": "chicken", "quantity": 100, "unit": "gram", "calories": 165, "protein_g": 31},
+          {"name": "peanuts", "quantity": 20, "unit": "gram", "calories": 114, "protein_g": 5}
+        ],
+        "calories": 436,
+        "protein_g": 39,
+        "confidence": 0.75
+      }
+    },
+    {
+      "input": "had ramen",
+      "expected": {
+        "food_items": [
+          {"name": "ramen noodles", "quantity": 100, "unit": "gram", "calories": 157, "protein_g": 5},
+          {"name": "pork", "quantity": 50, "unit": "gram", "calories": 143, "protein_g": 21},
+          {"name": "egg", "quantity": 1, "unit": "piece", "calories": 70, "protein_g": 6}
+        ],
+        "calories": 370,
+        "protein_g": 32,
+        "confidence": 0.8
+      }
+    }
+  ]
+}

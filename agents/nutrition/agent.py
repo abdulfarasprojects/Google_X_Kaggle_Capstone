@@ -19,7 +19,12 @@ from tools.nutrition.batch_parser import parse_meal_batch
 from tools.nutrition.calculator import calculate_meal_nutrition
 from tools.nutrition.manual_entry import process_manual_calorie_entry
 from tools.nutrition.meal_storage import store_meal_log
+from tools.nutrition.usda_client import lookup_nutrition_usda
 from database.meal_manager import meal_manager
+
+# Observability imports
+from observability.tracing import traced
+from observability.metrics import record_request, record_response_time, record_error
 
 # Import Google ADK
 from google.adk.agents import LlmAgent
@@ -30,6 +35,7 @@ from config.gemini import PatchedGemini
 logger = get_logger(__name__)
 
 # Logging wrapper functions for tools
+@traced("parse_meal_batch")
 async def logged_parse_meal_batch(food_items: str, meal_type: str, user_id: str, tool_context: Optional[str] = None):
     """Wrapper for meal batch parsing with logging.
     
@@ -87,10 +93,19 @@ async def logged_parse_meal_batch(food_items: str, meal_type: str, user_id: str,
             "macros": calc_result.get('macros', {}),
             "meal_id": store_result.get('meal_id') if store_result.get('success') else None
         }
+    except TypeError as e:
+        # Handle ADK schema validation comparison errors
+        error_str = str(e)
+        if "'<=' not supported" in error_str or "not supported between instances of" in error_str:
+            logger.warning(f"ADK comparison error in meal parsing: {error_str}")
+            return {"status": "error", "error": "Processing error, please try again"}
+        logger.error(f"Error in meal logging pipeline: {e}")
+        return {"status": "error", "error": str(e)}
     except Exception as e:
         logger.error(f"Error in meal logging pipeline: {e}")
         return {"status": "error", "error": str(e)}
 
+@traced("lookup_nutrition_usda")
 async def logged_lookup_nutrition_usda(food_name: str, portion_size: str = "100g", tool_context: Optional[str] = None):
     """Wrapper for USDA nutrition lookup with logging.
     
@@ -102,10 +117,19 @@ async def logged_lookup_nutrition_usda(food_name: str, portion_size: str = "100g
         result = await lookup_nutrition_usda(food_name, portion_size)
         logger.info(f"📚 USDA lookup result: {result}")
         return result
+    except TypeError as e:
+        # Handle ADK schema validation comparison errors
+        error_str = str(e)
+        if "'<=' not supported" in error_str or "not supported between instances of" in error_str:
+            logger.warning(f"ADK comparison error in USDA lookup: {error_str}")
+            return {"status": "error", "error": "Processing error, please try again"}
+        logger.error(f"USDA lookup error: {e}")
+        return {"status": "error", "error": str(e)}
     except Exception as e:
         logger.error(f"USDA lookup error: {e}")
         return {"status": "error", "error": str(e)}
 
+@traced("get_nutrition_summary")
 async def logged_get_nutrition_summary(user_id: str, period: str = "today", tool_context: Optional[str] = None):
     """Wrapper for nutrition summary queries with logging.
     
@@ -125,10 +149,19 @@ async def logged_get_nutrition_summary(user_id: str, period: str = "today", tool
 
         logger.info(f"📈 Nutrition summary result: {result}")
         return result
+    except TypeError as e:
+        # Handle ADK schema validation comparison errors
+        error_str = str(e)
+        if "'<=' not supported" in error_str or "not supported between instances of" in error_str:
+            logger.warning(f"ADK comparison error in nutrition summary: {error_str}")
+            return {"status": "error", "error": "Processing error, please try again"}
+        logger.error(f"Failed to get nutrition summary: {e}")
+        return {"status": "error", "error": str(e)}
     except Exception as e:
         logger.error(f"Failed to get nutrition summary: {e}")
         return {"status": "error", "error": str(e)}
 
+@traced("process_manual_calorie_entry")
 async def logged_process_manual_calorie_entry(text: str, user_id: str = "", tool_context: Optional[str] = None):
     """Wrapper for manual calorie entry processing with logging.
     
@@ -140,10 +173,19 @@ async def logged_process_manual_calorie_entry(text: str, user_id: str = "", tool
         result = process_manual_calorie_entry(text, {"user_id": user_id} if user_id else None)
         logger.info(f"✅ Manual entry processing result: {result}")
         return result
+    except TypeError as e:
+        # Handle ADK schema validation comparison errors
+        error_str = str(e)
+        if "'<=' not supported" in error_str or "not supported between instances of" in error_str:
+            logger.warning(f"ADK comparison error in manual entry: {error_str}")
+            return {"status": "error", "error": "Processing error, please try again"}
+        logger.error(f"Error processing manual entry: {e}")
+        return {"status": "error", "error": str(e)}
     except Exception as e:
         logger.error(f"Error processing manual entry: {e}")
         return {"status": "error", "error": str(e)}
 
+@traced("store_meal_log")
 async def logged_store_meal_log(user_id: str, meal_type: str, food_items_json: str, total_calories: float, total_protein_g: float, confidence_score: float = 1.0, tool_context: Optional[str] = None):
     """Wrapper for meal storage with logging.
     
@@ -160,6 +202,14 @@ async def logged_store_meal_log(user_id: str, meal_type: str, food_items_json: s
         result = await store_meal_log(user_id, meal_type, food_items, total_calories, total_protein_g, confidence_score, None)
         logger.info(f"✅ Meal storage result: {result}")
         return result
+    except TypeError as e:
+        # Handle ADK schema validation comparison errors
+        error_str = str(e)
+        if "'<=' not supported" in error_str or "not supported between instances of" in error_str:
+            logger.warning(f"ADK comparison error in meal storage: {error_str}")
+            return {"status": "error", "error": "Processing error, please try again"}
+        logger.error(f"Error storing meal log: {e}")
+        return {"status": "error", "error": str(e)}
     except Exception as e:
         logger.error(f"Error storing meal log: {e}")
         return {"status": "error", "error": str(e)}

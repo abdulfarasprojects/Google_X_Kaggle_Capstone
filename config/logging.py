@@ -6,10 +6,12 @@ utilities. It ensures proper log formatting, sensitive data filtering,
 and structured error reporting while maintaining privacy compliance.
 
 Key features:
-- Structured logging with JSON format
+- Structured logging with JSON format and correlation IDs
 - Sensitive data filtering and sanitization
 - Error classification and handling
-- Performance monitoring
+- Performance monitoring with timing
+- Distributed tracing support
+- User journey tracking
 - GDPR-compliant logging practices
 """
 
@@ -18,12 +20,26 @@ import sys
 import json
 import logging
 import logging.handlers
+import uuid
+import time
+import threading
 from typing import Dict, Any, Optional, List, Callable
 from pathlib import Path
 from datetime import datetime
 from contextlib import contextmanager
+from contextvars import ContextVar
 
 from config.settings import settings
+
+
+# Context variables for distributed tracing and user journey tracking
+correlation_id_var: ContextVar[Optional[str]] = ContextVar('correlation_id', default=None)
+user_id_var: ContextVar[Optional[str]] = ContextVar('user_id', default=None)
+agent_var: ContextVar[Optional[str]] = ContextVar('agent', default=None)
+tool_var: ContextVar[Optional[str]] = ContextVar('tool', default=None)
+journey_id_var: ContextVar[Optional[str]] = ContextVar('journey_id', default=None)
+span_id_var: ContextVar[Optional[str]] = ContextVar('span_id', default=None)
+parent_span_id_var: ContextVar[Optional[str]] = ContextVar('parent_span_id', default=None)
 
 
 class SensitiveDataFilter(logging.Filter):
@@ -88,17 +104,18 @@ class SensitiveDataFilter(logging.Filter):
 
 class JSONFormatter(logging.Formatter):
     """
-    JSON formatter for structured logging.
+    Enhanced JSON formatter for structured logging with observability features.
 
     Formats log records as JSON objects for better parsing and analysis.
-    Includes timestamp, level, message, and additional context.
+    Includes timestamp, level, message, correlation ID, user journey tracking,
+    agent/tool context, and performance metrics.
     """
 
     def format(self, record: logging.LogRecord) -> str:
-        """Format log record as JSON."""
+        """Format log record as JSON with observability context."""
         # Create base log entry
         log_entry = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.utcnow().isoformat() + "Z",
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -107,18 +124,60 @@ class JSONFormatter(logging.Formatter):
             "line": record.lineno,
         }
 
+        # Add correlation and tracing context
+        correlation_id = correlation_id_var.get()
+        if correlation_id:
+            log_entry["correlation_id"] = correlation_id
+
+        user_id = user_id_var.get()
+        if user_id:
+            log_entry["user_id"] = user_id
+
+        agent = agent_var.get()
+        if agent:
+            log_entry["agent"] = agent
+
+        tool = tool_var.get()
+        if tool:
+            log_entry["tool"] = tool
+
+        journey_id = journey_id_var.get()
+        if journey_id:
+            log_entry["journey_id"] = journey_id
+
+        span_id = span_id_var.get()
+        if span_id:
+            log_entry["span_id"] = span_id
+
+        parent_span_id = parent_span_id_var.get()
+        if parent_span_id:
+            log_entry["parent_span_id"] = parent_span_id
+
         # Add exception info if present
         if record.exc_info:
             log_entry["exception"] = self.formatException(record.exc_info)
+            log_entry["exception_type"] = record.exc_info[0].__name__ if record.exc_info[0] else None
 
-        # Add extra fields
+        # Add performance metrics if present
+        if hasattr(record, 'duration_ms'):
+            log_entry["duration_ms"] = record.duration_ms
+
+        if hasattr(record, 'status'):
+            log_entry["status"] = record.status
+
+        # Add metadata if present
+        if hasattr(record, 'metadata') and record.metadata:
+            log_entry["metadata"] = record.metadata
+
+        # Add any extra fields from the record
         if hasattr(record, '__dict__'):
             for key, value in record.__dict__.items():
                 if key not in ('name', 'msg', 'args', 'levelname', 'levelno',
                              'pathname', 'filename', 'module', 'exc_info',
                              'exc_text', 'stack_info', 'lineno', 'funcName',
                              'created', 'msecs', 'relativeCreated', 'thread',
-                             'threadName', 'processName', 'process', 'message'):
+                             'threadName', 'processName', 'process', 'message',
+                             'duration_ms', 'status', 'metadata'):
                     log_entry[key] = value
 
         return json.dumps(log_entry, default=str)
@@ -369,6 +428,274 @@ def error_context(operation: str, user_id: Optional[str] = None, **extra_context
         })
 
 
+@contextmanager
+def request_context(correlation_id: Optional[str] = None, user_id: Optional[str] = None, journey_id: Optional[str] = None):
+    """
+    Context manager for request-level logging context.
+
+    Sets correlation ID, user ID, and journey ID for all logs within the context.
+
+    Args:
+        correlation_id: Request correlation ID (generated if not provided)
+        user_id: User identifier
+        journey_id: User journey identifier (generated if not provided)
+    """
+    # Generate IDs if not provided
+    corr_id = correlation_id or str(uuid.uuid4())
+    journey = journey_id or str(uuid.uuid4())
+
+    # Set context variables
+    corr_token = correlation_id_var.set(corr_id)
+    user_token = user_id_var.set(user_id) if user_id else None
+    journey_token = journey_id_var.set(journey)
+
+    try:
+        yield {
+            "correlation_id": corr_id,
+            "user_id": user_id,
+            "journey_id": journey
+        }
+    finally:
+        # Reset context variables
+        correlation_id_var.reset(corr_token)
+        if user_token:
+            user_id_var.reset(user_token)
+        journey_id_var.reset(journey_token)
+
+
+@contextmanager
+def agent_context(agent_name: str, user_id: Optional[str] = None):
+    """
+    Context manager for agent execution logging.
+
+    Sets agent context and tracks execution time.
+
+    Args:
+        agent_name: Name of the agent
+        user_id: User identifier
+    """
+    logger = logging.getLogger(__name__)
+    start_time = time.time()
+
+    # Set agent context
+    agent_token = agent_var.set(agent_name)
+    user_token = user_id_var.set(user_id) if user_id else None
+
+    try:
+        logger.info(f"Agent execution started: {agent_name}", extra={
+            "operation": "agent_start",
+            "agent": agent_name,
+            "user_id": user_id
+        })
+        yield
+    finally:
+        duration_ms = (time.time() - start_time) * 1000
+
+        logger.info(f"Agent execution completed: {agent_name}", extra={
+            "operation": "agent_complete",
+            "agent": agent_name,
+            "user_id": user_id,
+            "duration_ms": duration_ms
+        })
+
+        # Reset context variables
+        agent_var.reset(agent_token)
+        if user_token:
+            user_id_var.reset(user_token)
+
+
+@contextmanager
+def tool_context(tool_name: str, agent_name: Optional[str] = None, user_id: Optional[str] = None):
+    """
+    Context manager for tool execution logging.
+
+    Sets tool context and tracks execution time.
+
+    Args:
+        tool_name: Name of the tool
+        agent_name: Name of the agent using the tool
+        user_id: User identifier
+    """
+    logger = logging.getLogger(__name__)
+    start_time = time.time()
+
+    # Set tool context
+    tool_token = tool_var.set(tool_name)
+    agent_token = agent_var.set(agent_name) if agent_name else None
+    user_token = user_id_var.set(user_id) if user_id else None
+
+    try:
+        logger.info(f"Tool execution started: {tool_name}", extra={
+            "operation": "tool_start",
+            "tool": tool_name,
+            "agent": agent_name,
+            "user_id": user_id
+        })
+        yield
+    finally:
+        duration_ms = (time.time() - start_time) * 1000
+
+        logger.info(f"Tool execution completed: {tool_name}", extra={
+            "operation": "tool_complete",
+            "tool": tool_name,
+            "agent": agent_name,
+            "user_id": user_id,
+            "duration_ms": duration_ms
+        })
+
+        # Reset context variables
+        tool_var.reset(tool_token)
+        if agent_token:
+            agent_var.reset(agent_token)
+        if user_token:
+            user_id_var.reset(user_token)
+
+
+@contextmanager
+def span_context(operation: str, parent_span_id: Optional[str] = None):
+    """
+    Context manager for distributed tracing spans.
+
+    Creates a new span for the operation and tracks timing.
+
+    Args:
+        operation: Name of the operation
+        parent_span_id: Parent span ID for nested operations
+    """
+    span_id = str(uuid.uuid4())
+    start_time = datetime.utcnow()
+
+    # Set span context
+    span_token = span_id_var.set(span_id)
+    parent_token = parent_span_id_var.set(parent_span_id) if parent_span_id else None
+
+    try:
+        yield span_id
+    finally:
+        end_time = datetime.utcnow()
+        duration_ms = (end_time - start_time).total_seconds() * 1000
+
+        logger = logging.getLogger(__name__)
+        logger.info(f"Span completed: {operation}", extra={
+            "operation": operation,
+            "span_id": span_id,
+            "parent_span_id": parent_span_id,
+            "start_time": start_time.isoformat() + "Z",
+            "end_time": end_time.isoformat() + "Z",
+            "duration_ms": duration_ms
+        })
+
+        # Reset context variables
+        span_id_var.reset(span_token)
+        if parent_token:
+            parent_span_id_var.reset(parent_token)
+
+
+@contextmanager
+def database_context(operation: str, table: Optional[str] = None):
+    """
+    Context manager for database operation logging.
+
+    Tracks database query timing and context.
+
+    Args:
+        operation: Database operation (select, insert, update, delete)
+        table: Table name being operated on
+    """
+    logger = logging.getLogger(__name__)
+    start_time = time.time()
+
+    try:
+        logger.debug(f"Database operation started: {operation}", extra={
+            "operation": "db_start",
+            "db_operation": operation,
+            "table": table
+        })
+        yield
+    finally:
+        duration_ms = (time.time() - start_time) * 1000
+
+        logger.info(f"Database operation completed: {operation}", extra={
+            "operation": "db_complete",
+            "db_operation": operation,
+            "table": table,
+            "duration_ms": duration_ms
+        })
+
+
+@contextmanager
+def api_context(provider: str, endpoint: str, method: str = "GET"):
+    """
+    Context manager for API call logging.
+
+    Tracks API call latency and context.
+
+    Args:
+        provider: API provider name
+        endpoint: API endpoint
+        method: HTTP method
+    """
+    logger = logging.getLogger(__name__)
+    start_time = time.time()
+
+    try:
+        logger.debug(f"API call started: {provider} {method} {endpoint}", extra={
+            "operation": "api_start",
+            "api_provider": provider,
+            "api_endpoint": endpoint,
+            "api_method": method
+        })
+        yield
+    finally:
+        duration_ms = (time.time() - start_time) * 1000
+
+        logger.info(f"API call completed: {provider} {method} {endpoint}", extra={
+            "operation": "api_complete",
+            "api_provider": provider,
+            "api_endpoint": endpoint,
+            "api_method": method,
+            "duration_ms": duration_ms
+        })
+
+
+def log_user_journey_event(event_type: str, user_id: str, details: Optional[Dict[str, Any]] = None):
+    """
+    Log user journey events for tracking user experience.
+
+    Args:
+        event_type: Type of journey event (start, milestone, end, error)
+        user_id: User identifier
+        details: Additional event details
+    """
+    logger = logging.getLogger(__name__)
+    logger.info(f"User journey event: {event_type}", extra={
+        "operation": "journey_event",
+        "event_type": event_type,
+        "user_id": user_id,
+        "journey_details": details or {}
+    })
+
+
+def log_metric(name: str, value: float, tags: Optional[Dict[str, str]] = None, metadata: Optional[Dict[str, Any]] = None):
+    """
+    Log custom metrics for monitoring and alerting.
+
+    Args:
+        name: Metric name
+        value: Metric value
+        tags: Metric tags for filtering
+        metadata: Additional metadata
+    """
+    logger = logging.getLogger(__name__)
+    logger.info(f"Metric: {name} = {value}", extra={
+        "operation": "metric",
+        "metric_name": name,
+        "metric_value": value,
+        "metric_tags": tags or {},
+        "metadata": metadata or {}
+    })
+
+
 def log_performance(operation: str, duration: float, success: bool = True, **metrics) -> None:
     """
     Log performance metrics for operations.
@@ -452,7 +779,9 @@ setup_logging()
 # Export key classes and functions
 __all__ = [
     'SensitiveDataFilter', 'JSONFormatter', 'ErrorHandler',
-    'setup_logging', 'error_context', 'log_performance', 'HealthChecker', 'get_logger'
+    'setup_logging', 'error_context', 'request_context', 'agent_context',
+    'tool_context', 'span_context', 'database_context', 'api_context',
+    'log_user_journey_event', 'log_metric', 'log_performance', 'HealthChecker', 'get_logger'
 ]
 
 

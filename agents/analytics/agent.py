@@ -19,6 +19,10 @@ from tools.analytics.trends import analyze_progress_trends
 from tools.analytics.hero_stats import generate_hero_stats
 from database.analytics_manager import analytics_manager
 
+# Observability imports
+from observability.tracing import traced
+from observability.metrics import record_request, record_response_time, record_error
+
 # Import Google ADK
 from google.adk.agents import LlmAgent
 from google.adk.tools import FunctionTool
@@ -27,6 +31,7 @@ from config.gemini import PatchedGemini
 logger = get_logger(__name__)
 
 # Logging wrapper functions for tools
+@traced("calculate_progress_metrics")
 def logged_calculate_progress_metrics(*args, **kwargs):
     """Wrapper for progress metrics calculation with logging."""
     logger.info(f"📊 Calculating progress metrics with args: {args}, kwargs: {kwargs}")
@@ -34,6 +39,7 @@ def logged_calculate_progress_metrics(*args, **kwargs):
     logger.info(f"📈 Progress metrics result: {result}")
     return result
 
+@traced("analyze_progress_trends")
 def logged_analyze_progress_trends(*args, **kwargs):
     """Wrapper for trend analysis with logging."""
     logger.info(f"📉 Analyzing progress trends with args: {args}, kwargs: {kwargs}")
@@ -41,6 +47,7 @@ def logged_analyze_progress_trends(*args, **kwargs):
     logger.info(f"📊 Trend analysis result: {result}")
     return result
 
+@traced("generate_hero_stats")
 def logged_generate_hero_stats(*args, **kwargs):
     """Wrapper for hero stats generation with logging."""
     logger.info(f"🏆 Generating hero stats with args: {args}, kwargs: {kwargs}")
@@ -48,6 +55,7 @@ def logged_generate_hero_stats(*args, **kwargs):
     logger.info(f"🎉 Hero stats result: {result}")
     return result
 
+@traced("get_progress_summary")
 def logged_get_progress_summary(user_id: str, period: str = "weekly", tool_context: Optional[Dict[str, Any]] = None):
     """Wrapper for progress summary queries with logging."""
     logger.info(f"📋 Getting progress summary for user {user_id}, period: {period}")

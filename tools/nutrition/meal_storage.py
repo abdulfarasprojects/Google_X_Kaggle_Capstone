@@ -11,6 +11,10 @@ from typing import List, Dict, Any, Optional
 from tools.base import BaseTool, ToolResult
 from database.meal_manager import meal_manager
 
+# Observability imports
+from observability.tracing import traced
+from observability.metrics import record_request, record_response_time, record_error
+
 logger = logging.getLogger(__name__)
 
 
@@ -147,6 +151,7 @@ meal_storage_tool = MealStorageTool()
 
 
 # Convenience function for direct use
+@traced("store_meal_log")
 async def store_meal_log(
     user_id: str,
     meal_type: str,

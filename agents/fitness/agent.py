@@ -20,6 +20,10 @@ from tools.fitness.progress import suggest_workout_progression
 from tools.fitness.workout_storage import store_workout_log
 from database.workout_manager import workout_manager
 
+# Observability imports
+from observability.tracing import traced
+from observability.metrics import record_request, record_response_time, record_error
+
 # Import Google ADK
 from google.adk.agents import LlmAgent
 from google.adk.tools import FunctionTool
@@ -32,26 +36,64 @@ class ManualFunctionTool(FunctionTool):
         from google.genai.types import FunctionDeclaration, Schema
         from google.genai.types import Type as GenaiType
         
-        # Convert dict to proper ADK objects
-        params_schema = Schema(
-            type=GenaiType.OBJECT,
-            properties={
-                param_name: Schema(
-                    type=self._map_type(param_info.get('type', 'string')),
-                    description=param_info.get('description', ''),
-                    enum=param_info.get('enum'),
-                    default=param_info.get('default')
-                ) if isinstance(param_info, dict) else Schema(type=self._map_type(param_info))
-                for param_name, param_info in declaration_dict['parameters']['properties'].items()
-            },
-            required=declaration_dict['parameters'].get('required', [])
-        )
-        
-        self._manual_declaration = FunctionDeclaration(
-            name=declaration_dict['name'],
-            description=declaration_dict['description'],
-            parameters=params_schema
-        )
+        try:
+            # Convert dict to proper ADK objects
+            params_schema = Schema(
+                type=GenaiType.OBJECT,
+                properties={
+                    param_name: Schema(
+                        type=self._map_type(param_info.get('type', 'string')),
+                        description=param_info.get('description', ''),
+                        enum=param_info.get('enum'),
+                        default=param_info.get('default'),
+                        # Ensure minimum/maximum are converted to proper types
+                        minimum=self._convert_constraint(param_info.get('minimum'), self._map_type(param_info.get('type', 'string'))),
+                        maximum=self._convert_constraint(param_info.get('maximum'), self._map_type(param_info.get('type', 'string')))
+                    ) if isinstance(param_info, dict) else Schema(type=self._map_type(param_info))
+                    for param_name, param_info in declaration_dict['parameters']['properties'].items()
+                },
+                required=declaration_dict['parameters'].get('required', [])
+            )
+            
+            self._manual_declaration = FunctionDeclaration(
+                name=declaration_dict['name'],
+                description=declaration_dict['description'],
+                parameters=params_schema
+            )
+        except Exception as e:
+            logger.error(f"Error creating ManualFunctionTool schema: {e}")
+            # Fallback to simple schema
+            params_schema = Schema(
+                type=GenaiType.OBJECT,
+                properties={
+                    param_name: Schema(
+                        type=self._map_type(param_info.get('type', 'string') if isinstance(param_info, dict) else 'string'),
+                        description=param_info.get('description', '') if isinstance(param_info, dict) else ''
+                    )
+                    for param_name, param_info in declaration_dict['parameters']['properties'].items()
+                },
+                required=declaration_dict['parameters'].get('required', [])
+            )
+            self._manual_declaration = FunctionDeclaration(
+                name=declaration_dict['name'],
+                description=declaration_dict['description'],
+                parameters=params_schema
+            )
+    
+    def _convert_constraint(self, value, genai_type):
+        """Convert minimum/maximum constraint to proper type."""
+        if value is None:
+            return None
+        try:
+            from google.genai.types import Type as GenaiType
+            if genai_type == GenaiType.INTEGER:
+                return int(value) if value is not None else None
+            elif genai_type == GenaiType.NUMBER:
+                return float(value) if value is not None else None
+            return value
+        except Exception as e:
+            logger.warning(f"Failed to convert constraint {value}: {e}")
+            return None
     
     def _map_type(self, type_str):
         from google.genai.types import Type as GenaiType
@@ -71,98 +113,145 @@ class ManualFunctionTool(FunctionTool):
 logger = get_logger(__name__)
 
 # Logging wrapper functions for tools
+@traced("parse_workout_batch")
 async def logged_parse_workout_batch(exercise_descriptions: str, tool_context=None):
     """Wrapper for workout batch parsing with logging."""
-    # Extract user_id from tool_context
-    user_id = tool_context.session.user_id if tool_context and hasattr(tool_context, 'session') and tool_context.session else 'unknown'
-    
-    # Parse the JSON string back to list
-    import json
     try:
-        descriptions_list = json.loads(exercise_descriptions)
-    except:
-        descriptions_list = [exercise_descriptions]  # fallback to single string
-    
-    logger.info(f"🏋️ Parsing workout batch: {descriptions_list}, user_id: {user_id}")
-    result = await parse_workout_batch(descriptions_list, user_id, tool_context)
-    logger.info(f"📋 Workout batch parsing result: {result}")
-    return result
+        # Extract user_id from tool_context
+        user_id = tool_context.session.user_id if tool_context and hasattr(tool_context, 'session') and tool_context.session else 'unknown'
+        
+        # Parse the JSON string back to list
+        import json
+        try:
+            descriptions_list = json.loads(exercise_descriptions)
+        except:
+            descriptions_list = [exercise_descriptions]  # fallback to single string
+        
+        logger.info(f"🏋️ Parsing workout batch: {descriptions_list}, user_id: {user_id}")
+        result = await parse_workout_batch(descriptions_list, user_id, tool_context)
+        logger.info(f"📋 Workout batch parsing result: {result}")
+        return result
+    except TypeError as e:
+        if "'<=' not supported" in str(e) or "not supported between instances" in str(e):
+            logger.warning(f"Type comparison error in parse_workout_batch: {e}")
+            return {"status": "error", "error": "Processing error, please try again"}
+        raise
+    except Exception as e:
+        logger.error(f"Error in parse_workout_batch: {e}")
+        return {"status": "error", "error": str(e)}
 
+@traced("calculate_workout_volume")
 async def logged_calculate_workout_volume(parsed_exercises_json: str, tool_context=None):
     """Wrapper for volume calculation with logging."""
-    # Extract user_id from tool_context
-    user_id = tool_context.session.user_id if tool_context and hasattr(tool_context, 'session') and tool_context.session else 'unknown'
-    
-    # Parse the JSON string back to list of dicts
-    import json
     try:
-        parsed_exercises = json.loads(parsed_exercises_json)
-    except:
-        logger.error(f"Failed to parse parsed_exercises_json: {parsed_exercises_json}")
-        return {"status": "error", "error": "Invalid JSON format for exercises"}
-    
-    logger.info(f"📊 Calculating workout volume: {len(parsed_exercises)} exercises, user_id: {user_id}")
-    result = await calculate_workout_volume(parsed_exercises, user_id, tool_context)
-    logger.info(f"💪 Volume calculation result: {result}")
-    return result
+        # Extract user_id from tool_context
+        user_id = tool_context.session.user_id if tool_context and hasattr(tool_context, 'session') and tool_context.session else 'unknown'
+        
+        # Parse the JSON string back to list of dicts
+        import json
+        try:
+            parsed_exercises = json.loads(parsed_exercises_json)
+        except:
+            logger.error(f"Failed to parse parsed_exercises_json: {parsed_exercises_json}")
+            return {"status": "error", "error": "Invalid JSON format for exercises"}
+        
+        logger.info(f"📊 Calculating workout volume: {len(parsed_exercises)} exercises, user_id: {user_id}")
+        result = await calculate_workout_volume(parsed_exercises, user_id, tool_context)
+        logger.info(f"💪 Volume calculation result: {result}")
+        return result
+    except TypeError as e:
+        if "'<=' not supported" in str(e) or "not supported between instances" in str(e):
+            logger.warning(f"Type comparison error in calculate_workout_volume: {e}")
+            return {"status": "error", "error": "Processing error, please try again"}
+        raise
+    except Exception as e:
+        logger.error(f"Error in calculate_workout_volume: {e}")
+        return {"status": "error", "error": str(e)}
 
+@traced("suggest_workout_progression")
 async def logged_suggest_workout_progression(current_exercises_json: str, workout_history=None, user_profile=None, tool_context=None):
     """Wrapper for progression suggestions with logging."""
-    # Extract user_id from tool_context
-    user_id = tool_context.session.user_id if tool_context and hasattr(tool_context, 'session') and tool_context.session else 'unknown'
-    
-    # Parse the JSON string back to list of dicts
-    import json
     try:
-        current_exercises = json.loads(current_exercises_json)
-    except:
-        logger.error(f"Failed to parse current_exercises_json: {current_exercises_json}")
-        return {"status": "error", "error": "Invalid JSON format for exercises"}
-    
-    logger.info(f"📈 Generating progression suggestions for user {user_id}: {len(current_exercises)} exercises")
-    result = await suggest_workout_progression(current_exercises, user_id, workout_history, user_profile, tool_context)
-    logger.info(f"🎯 Progression suggestions result: {result}")
-    return result
+        # Extract user_id from tool_context
+        user_id = tool_context.session.user_id if tool_context and hasattr(tool_context, 'session') and tool_context.session else 'unknown'
+        
+        # Parse the JSON string back to list of dicts
+        import json
+        try:
+            current_exercises = json.loads(current_exercises_json)
+        except:
+            logger.error(f"Failed to parse current_exercises_json: {current_exercises_json}")
+            return {"status": "error", "error": "Invalid JSON format for exercises"}
+        
+        logger.info(f"📈 Generating progression suggestions for user {user_id}: {len(current_exercises)} exercises")
+        result = await suggest_workout_progression(current_exercises, user_id, workout_history, user_profile, tool_context)
+        logger.info(f"🎯 Progression suggestions result: {result}")
+        return result
+    except TypeError as e:
+        if "'<=' not supported" in str(e) or "not supported between instances" in str(e):
+            logger.warning(f"Type comparison error in suggest_workout_progression: {e}")
+            return {"status": "error", "error": "Processing error, please try again"}
+        raise
+    except Exception as e:
+        logger.error(f"Error in suggest_workout_progression: {e}")
+        return {"status": "error", "error": str(e)}
 
+@traced("store_workout_log")
 async def logged_store_workout_log(exercises_json: str, total_volume: int, progression_suggestion: str = "", tool_context=None):
     """Wrapper for workout storage with logging."""
-    # Extract user_id from tool_context
-    user_id = tool_context.session.user_id if tool_context and hasattr(tool_context, 'session') and tool_context.session else 'unknown'
-    
-    # Parse the JSON string back to list of dicts
-    import json
     try:
-        exercises = json.loads(exercises_json)
-    except:
-        logger.error(f"Failed to parse exercises_json: {exercises_json}")
-        return {"status": "error", "error": "Invalid JSON format for exercises"}
-    
-    logger.info(f"💾 Storing workout log for user {user_id}: {total_volume} volume, {len(exercises)} exercises")
-    result = await store_workout_log(user_id, exercises, total_volume, progression_suggestion, tool_context)
-    logger.info(f"✅ Workout storage result: {result}")
-    return result
+        # Extract user_id from tool_context
+        user_id = tool_context.session.user_id if tool_context and hasattr(tool_context, 'session') and tool_context.session else 'unknown'
+        
+        # Parse the JSON string back to list of dicts
+        import json
+        try:
+            exercises = json.loads(exercises_json)
+        except:
+            logger.error(f"Failed to parse exercises_json: {exercises_json}")
+            return {"status": "error", "error": "Invalid JSON format for exercises"}
+        
+        logger.info(f"💾 Storing workout log for user {user_id}: {total_volume} volume, {len(exercises)} exercises")
+        result = await store_workout_log(user_id, exercises, total_volume, progression_suggestion, tool_context)
+        logger.info(f"✅ Workout storage result: {result}")
+        return result
+    except TypeError as e:
+        if "'<=' not supported" in str(e) or "not supported between instances" in str(e):
+            logger.warning(f"Type comparison error in store_workout_log: {e}")
+            return {"status": "error", "error": "Processing error, please try again"}
+        raise
+    except Exception as e:
+        logger.error(f"Error in store_workout_log: {e}")
+        return {"status": "error", "error": str(e)}
 
+@traced("get_workout_summary")
 def logged_get_workout_summary(period: str = "today", tool_context=None):
     """Wrapper for workout summary queries with logging."""
-    # Extract user_id from tool_context
-    user_id = tool_context.session.user_id if tool_context and hasattr(tool_context, 'session') and tool_context.session else 'unknown'
-    
-    logger.info(f"📊 Getting workout summary for user {user_id}, period: {period}")
-    
     try:
-        if period.lower() in ["today", "day"]:
-            result = workout_manager.get_daily_workout_summary(user_id, date.today())
-        elif period.lower() in ["week", "weekly", "this week"]:
-            result = workout_manager.get_workout_analytics(user_id, days=7)
-        else:
-            # Default to today
-            result = workout_manager.get_daily_workout_summary(user_id, date.today())
-            
-        logger.info(f"📈 Workout summary result: {result}")
-        return result
-    except Exception as e:
-        logger.error(f"Failed to get workout summary: {e}")
-        return {"status": "error", "error": str(e)}
+        # Extract user_id from tool_context
+        user_id = tool_context.session.user_id if tool_context and hasattr(tool_context, 'session') and tool_context.session else 'unknown'
+        
+        logger.info(f"📊 Getting workout summary for user {user_id}, period: {period}")
+        
+        try:
+            if period.lower() in ["today", "day"]:
+                result = workout_manager.get_daily_workout_summary(user_id, date.today())
+            elif period.lower() in ["week", "weekly", "this week"]:
+                result = workout_manager.get_workout_analytics(user_id, days=7)
+            else:
+                # Default to today
+                result = workout_manager.get_daily_workout_summary(user_id, date.today())
+                
+            logger.info(f"📈 Workout summary result: {result}")
+            return result
+        except Exception as e:
+            logger.error(f"Failed to get workout summary: {e}")
+            return {"status": "error", "error": str(e)}
+    except TypeError as e:
+        if "'<=' not supported" in str(e) or "not supported between instances" in str(e):
+            logger.warning(f"Type comparison error in get_workout_summary: {e}")
+            return {"status": "error", "error": "Processing error, please try again"}
+        raise
 
 # Define tools for fitness agent
 batch_parser_tool = FunctionTool(func=logged_parse_workout_batch)

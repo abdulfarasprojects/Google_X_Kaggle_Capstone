@@ -1,0 +1,961 @@
+{
+  "description": "Golden dataset for fitness agent testing with 50+ test cases covering strength, cardio, and bodyweight exercises",
+  "version": "1.0",
+  "test_cases": [
+    {
+      "input": "3 sets squats 80kg",
+      "expected": {
+        "exercises": [
+          {
+            "name": "squats",
+            "sets": 3,
+            "reps": null,
+            "weight_kg": 80,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 240
+          }
+        ],
+        "volume": 240,
+        "progression": "Heavy compound movement - focus on form"
+      }
+    },
+    {
+      "input": "ran 5km in 30 minutes",
+      "expected": {
+        "exercises": [
+          {
+            "name": "running",
+            "sets": 1,
+            "reps": null,
+            "weight_kg": null,
+            "duration_minutes": 30,
+            "distance_km": 5.0,
+            "volume_score": 150
+          }
+        ],
+        "volume": 150,
+        "progression": "Good pace - try to improve time next run"
+      }
+    },
+    {
+      "input": "50 push-ups, 20 pull-ups",
+      "expected": {
+        "exercises": [
+          {
+            "name": "push-ups",
+            "sets": 1,
+            "reps": 50,
+            "weight_kg": null,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 50
+          },
+          {
+            "name": "pull-ups",
+            "sets": 1,
+            "reps": 20,
+            "weight_kg": null,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 60
+          }
+        ],
+        "volume": 110,
+        "progression": "Excellent upper body strength - consider weighted variations"
+      }
+    },
+    {
+      "input": "squats, then cardio",
+      "expected": {
+        "exercises": [
+          {
+            "name": "squats",
+            "sets": 3,
+            "reps": 10,
+            "weight_kg": null,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 30
+          },
+          {
+            "name": "cardio",
+            "sets": 1,
+            "reps": null,
+            "weight_kg": null,
+            "duration_minutes": 20,
+            "distance_km": null,
+            "volume_score": 20
+          }
+        ],
+        "volume": 50,
+        "progression": "Mixed workout - good balance of strength and cardio"
+      }
+    },
+    {
+      "input": "bench press 4x8 70kg",
+      "expected": {
+        "exercises": [
+          {
+            "name": "bench press",
+            "sets": 4,
+            "reps": 8,
+            "weight_kg": 70,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 224
+          }
+        ],
+        "volume": 224,
+        "progression": "Solid chest work - aim for 75kg next session"
+      }
+    },
+    {
+      "input": "deadlift 5 sets 100kg",
+      "expected": {
+        "exercises": [
+          {
+            "name": "deadlift",
+            "sets": 5,
+            "reps": 5,
+            "weight_kg": 100,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 250
+          }
+        ],
+        "volume": 250,
+        "progression": "Heavy deadlifts - excellent strength foundation"
+      }
+    },
+    {
+      "input": "bicep curls 3x12 15kg dumbbells",
+      "expected": {
+        "exercises": [
+          {
+            "name": "bicep curls",
+            "sets": 3,
+            "reps": 12,
+            "weight_kg": 15,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 54
+          }
+        ],
+        "volume": 54,
+        "progression": "Good arm isolation work - increase weight when form allows"
+      }
+    },
+    {
+      "input": "cycling 45 minutes moderate intensity",
+      "expected": {
+        "exercises": [
+          {
+            "name": "cycling",
+            "sets": 1,
+            "reps": null,
+            "weight_kg": null,
+            "duration_minutes": 45,
+            "distance_km": null,
+            "volume_score": 45
+          }
+        ],
+        "volume": 45,
+        "progression": "Steady cardio session - good for endurance"
+      }
+    },
+    {
+      "input": "swimming 30 minutes freestyle",
+      "expected": {
+        "exercises": [
+          {
+            "name": "swimming",
+            "sets": 1,
+            "reps": null,
+            "weight_kg": null,
+            "duration_minutes": 30,
+            "distance_km": null,
+            "volume_score": 60
+          }
+        ],
+        "volume": 60,
+        "progression": "Low-impact cardio - excellent full-body workout"
+      }
+    },
+    {
+      "input": "lunges 3 sets 10 reps each leg bodyweight",
+      "expected": {
+        "exercises": [
+          {
+            "name": "lunges",
+            "sets": 3,
+            "reps": 20,
+            "weight_kg": null,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 60
+          }
+        ],
+        "volume": 60,
+        "progression": "Bodyweight lunges - add dumbbells for progression"
+      }
+    },
+    {
+      "input": "planks 3 sets 60 seconds",
+      "expected": {
+        "exercises": [
+          {
+            "name": "planks",
+            "sets": 3,
+            "reps": null,
+            "weight_kg": null,
+            "duration_minutes": 3,
+            "distance_km": null,
+            "volume_score": 9
+          }
+        ],
+        "volume": 9,
+        "progression": "Core stability work - increase time for progression"
+      }
+    },
+    {
+      "input": "burpees 4 rounds 10 reps",
+      "expected": {
+        "exercises": [
+          {
+            "name": "burpees",
+            "sets": 4,
+            "reps": 10,
+            "weight_kg": null,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 40
+          }
+        ],
+        "volume": 40,
+        "progression": "High-intensity conditioning - great for fat loss"
+      }
+    },
+    {
+      "input": "shoulder press 4x10 25kg",
+      "expected": {
+        "exercises": [
+          {
+            "name": "shoulder press",
+            "sets": 4,
+            "reps": 10,
+            "weight_kg": 25,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 100
+          }
+        ],
+        "volume": 100,
+        "progression": "Shoulder development - balanced with chest work"
+      }
+    },
+    {
+      "input": "rowing 2000m in 8 minutes",
+      "expected": {
+        "exercises": [
+          {
+            "name": "rowing",
+            "sets": 1,
+            "reps": null,
+            "weight_kg": null,
+            "duration_minutes": 8,
+            "distance_km": 2.0,
+            "volume_score": 160
+          }
+        ],
+        "volume": 160,
+        "progression": "Good rowing pace - focus on technique"
+      }
+    },
+    {
+      "input": "kettlebell swings 5x20 16kg",
+      "expected": {
+        "exercises": [
+          {
+            "name": "kettlebell swings",
+            "sets": 5,
+            "reps": 20,
+            "weight_kg": 16,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 160
+          }
+        ],
+        "volume": 160,
+        "progression": "Explosive hip drive - excellent conditioning"
+      }
+    },
+    {
+      "input": "dips bodyweight 4x15",
+      "expected": {
+        "exercises": [
+          {
+            "name": "dips",
+            "sets": 4,
+            "reps": 15,
+            "weight_kg": null,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 60
+          }
+        ],
+        "volume": 60,
+        "progression": "Bodyweight dips - add weight when easy"
+      }
+    },
+    {
+      "input": "walking 10000 steps",
+      "expected": {
+        "exercises": [
+          {
+            "name": "walking",
+            "sets": 1,
+            "reps": null,
+            "weight_kg": null,
+            "duration_minutes": null,
+            "distance_km": null,
+            "steps": 10000,
+            "volume_score": 50
+          }
+        ],
+        "volume": 50,
+        "progression": "Daily step goal achieved - good foundation"
+      }
+    },
+    {
+      "input": "jumping jacks 3 rounds 50 reps",
+      "expected": {
+        "exercises": [
+          {
+            "name": "jumping jacks",
+            "sets": 3,
+            "reps": 50,
+            "weight_kg": null,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 30
+          }
+        ],
+        "volume": 30,
+        "progression": "Cardio warm-up - good for heart health"
+      }
+    },
+    {
+      "input": "mountain climbers 4x30 seconds",
+      "expected": {
+        "exercises": [
+          {
+            "name": "mountain climbers",
+            "sets": 4,
+            "reps": null,
+            "weight_kg": null,
+            "duration_minutes": 2,
+            "distance_km": null,
+            "volume_score": 8
+          }
+        ],
+        "volume": 8,
+        "progression": "Core and cardio - increase speed for intensity"
+      }
+    },
+    {
+      "input": "overhead press 3x8 40kg",
+      "expected": {
+        "exercises": [
+          {
+            "name": "overhead press",
+            "sets": 3,
+            "reps": 8,
+            "weight_kg": 40,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 96
+          }
+        ],
+        "volume": 96,
+        "progression": "Standing press - great for functional strength"
+      }
+    },
+    {
+      "input": "bike ride 20km in 1 hour",
+      "expected": {
+        "exercises": [
+          {
+            "name": "cycling",
+            "sets": 1,
+            "reps": null,
+            "weight_kg": null,
+            "duration_minutes": 60,
+            "distance_km": 20.0,
+            "volume_score": 200
+          }
+        ],
+        "volume": 200,
+        "progression": "Long bike ride - excellent endurance work"
+      }
+    },
+    {
+      "input": "squats 5x5 90kg",
+      "expected": {
+        "exercises": [
+          {
+            "name": "squats",
+            "sets": 5,
+            "reps": 5,
+            "weight_kg": 90,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 225
+          }
+        ],
+        "volume": 225,
+        "progression": "Heavy squats - focus on depth and form"
+      }
+    },
+    {
+      "input": "treadmill run 10km",
+      "expected": {
+        "exercises": [
+          {
+            "name": "running",
+            "sets": 1,
+            "reps": null,
+            "weight_kg": null,
+            "duration_minutes": null,
+            "distance_km": 10.0,
+            "volume_score": 100
+          }
+        ],
+        "volume": 100,
+        "progression": "Long run - build endurance gradually"
+      }
+    },
+    {
+      "input": "lat pulldowns 4x12 60kg",
+      "expected": {
+        "exercises": [
+          {
+            "name": "lat pulldowns",
+            "sets": 4,
+            "reps": 12,
+            "weight_kg": 60,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 288
+          }
+        ],
+        "volume": 288,
+        "progression": "Back development - good pulling strength"
+      }
+    },
+    {
+      "input": "box jumps 3x10 60cm box",
+      "expected": {
+        "exercises": [
+          {
+            "name": "box jumps",
+            "sets": 3,
+            "reps": 10,
+            "weight_kg": null,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 30
+          }
+        ],
+        "volume": 30,
+        "progression": "Plyometric training - explosive power development"
+      }
+    },
+    {
+      "input": "farmer walks 4x40m 20kg each hand",
+      "expected": {
+        "exercises": [
+          {
+            "name": "farmer walks",
+            "sets": 4,
+            "reps": null,
+            "weight_kg": 40,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 160
+          }
+        ],
+        "volume": 160,
+        "progression": "Grip and core strength - functional movement"
+      }
+    },
+    {
+      "input": "elliptical 30 minutes",
+      "expected": {
+        "exercises": [
+          {
+            "name": "elliptical",
+            "sets": 1,
+            "reps": null,
+            "weight_kg": null,
+            "duration_minutes": 30,
+            "distance_km": null,
+            "volume_score": 30
+          }
+        ],
+        "volume": 30,
+        "progression": "Low-impact cardio - good recovery option"
+      }
+    },
+    {
+      "input": "clean and press 5x3 50kg",
+      "expected": {
+        "exercises": [
+          {
+            "name": "clean and press",
+            "sets": 5,
+            "reps": 3,
+            "weight_kg": 50,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 75
+          }
+        ],
+        "volume": 75,
+        "progression": "Olympic lift - complex full-body movement"
+      }
+    },
+    {
+      "input": "step ups 3x12 each leg 20kg dumbbells",
+      "expected": {
+        "exercises": [
+          {
+            "name": "step ups",
+            "sets": 3,
+            "reps": 24,
+            "weight_kg": 20,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 144
+          }
+        ],
+        "volume": 144,
+        "progression": "Unilateral leg work - improves balance"
+      }
+    },
+    {
+      "input": "hiking 2 hours moderate trail",
+      "expected": {
+        "exercises": [
+          {
+            "name": "hiking",
+            "sets": 1,
+            "reps": null,
+            "weight_kg": null,
+            "duration_minutes": 120,
+            "distance_km": null,
+            "volume_score": 120
+          }
+        ],
+        "volume": 120,
+        "progression": "Outdoor activity - great for mental health"
+      }
+    },
+    {
+      "input": "romanian deadlift 4x8 80kg",
+      "expected": {
+        "exercises": [
+          {
+            "name": "romanian deadlift",
+            "sets": 4,
+            "reps": 8,
+            "weight_kg": 80,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 256
+          }
+        ],
+        "volume": 256,
+        "progression": "Hamstring focus - complements squats"
+      }
+    },
+    {
+      "input": "battle ropes 3x30 seconds",
+      "expected": {
+        "exercises": [
+          {
+            "name": "battle ropes",
+            "sets": 3,
+            "reps": null,
+            "weight_kg": null,
+            "duration_minutes": 1.5,
+            "distance_km": null,
+            "volume_score": 4.5
+          }
+        ],
+        "volume": 4.5,
+        "progression": "High-intensity grip work - build conditioning"
+      }
+    },
+    {
+      "input": "wall sits 3x45 seconds",
+      "expected": {
+        "exercises": [
+          {
+            "name": "wall sits",
+            "sets": 3,
+            "reps": null,
+            "weight_kg": null,
+            "duration_minutes": 2.25,
+            "distance_km": null,
+            "volume_score": 6.75
+          }
+        ],
+        "volume": 6.75,
+        "progression": "Isometric quad strength - build endurance"
+      }
+    },
+    {
+      "input": "medicine ball slams 4x10 6kg",
+      "expected": {
+        "exercises": [
+          {
+            "name": "medicine ball slams",
+            "sets": 4,
+            "reps": 10,
+            "weight_kg": 6,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 24
+          }
+        ],
+        "volume": 24,
+        "progression": "Explosive core work - stress relief too"
+      }
+    },
+    {
+      "input": "stair climbing 20 minutes",
+      "expected": {
+        "exercises": [
+          {
+            "name": "stair climbing",
+            "sets": 1,
+            "reps": null,
+            "weight_kg": null,
+            "duration_minutes": 20,
+            "distance_km": null,
+            "volume_score": 100
+          }
+        ],
+        "volume": 100,
+        "progression": "High-calorie burn - great for weight loss"
+      }
+    },
+    {
+      "input": "front squats 3x5 70kg",
+      "expected": {
+        "exercises": [
+          {
+            "name": "front squats",
+            "sets": 3,
+            "reps": 5,
+            "weight_kg": 70,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 105
+          }
+        ],
+        "volume": 105,
+        "progression": "Quad-dominant squat variation"
+      }
+    },
+    {
+      "input": "assault bike 15 minutes all out",
+      "expected": {
+        "exercises": [
+          {
+            "name": "assault bike",
+            "sets": 1,
+            "reps": null,
+            "weight_kg": null,
+            "duration_minutes": 15,
+            "distance_km": null,
+            "volume_score": 75
+          }
+        ],
+        "volume": 75,
+        "progression": "High-intensity cardio - build anaerobic capacity"
+      }
+    },
+    {
+      "input": "goblet squats 4x15 20kg",
+      "expected": {
+        "exercises": [
+          {
+            "name": "goblet squats",
+            "sets": 4,
+            "reps": 15,
+            "weight_kg": 20,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 120
+          }
+        ],
+        "volume": 120,
+        "progression": "Great for learning squat mechanics"
+      }
+    },
+    {
+      "input": "ski ergometer 25 minutes",
+      "expected": {
+        "exercises": [
+          {
+            "name": "ski ergometer",
+            "sets": 1,
+            "reps": null,
+            "weight_kg": null,
+            "duration_minutes": 25,
+            "distance_km": null,
+            "volume_score": 125
+          }
+        ],
+        "volume": 125,
+        "progression": "Full-body cardio - mimics cross-country skiing"
+      }
+    },
+    {
+      "input": "push press 4x6 50kg",
+      "expected": {
+        "exercises": [
+          {
+            "name": "push press",
+            "sets": 4,
+            "reps": 6,
+            "weight_kg": 50,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 120
+          }
+        ],
+        "volume": 120,
+        "progression": "Power development - uses leg drive"
+      }
+    },
+    {
+      "input": "sled push 5x20m 90kg",
+      "expected": {
+        "exercises": [
+          {
+            "name": "sled push",
+            "sets": 5,
+            "reps": null,
+            "weight_kg": 90,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 450
+          }
+        ],
+        "volume": 450,
+        "progression": "Heavy conditioning - builds work capacity"
+      }
+    },
+    {
+      "input": "single arm dumbbell rows 3x12 each arm 25kg",
+      "expected": {
+        "exercises": [
+          {
+            "name": "single arm dumbbell rows",
+            "sets": 3,
+            "reps": 24,
+            "weight_kg": 25,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 180
+          }
+        ],
+        "volume": 180,
+        "progression": "Unilateral back work - improves imbalances"
+      }
+    },
+    {
+      "input": "sprints 8x100m",
+      "expected": {
+        "exercises": [
+          {
+            "name": "sprints",
+            "sets": 8,
+            "reps": null,
+            "weight_kg": null,
+            "duration_minutes": null,
+            "distance_km": 0.8,
+            "volume_score": 64
+          }
+        ],
+        "volume": 64,
+        "progression": "Speed work - improves fast-twitch fibers"
+      }
+    },
+    {
+      "input": "zercher squats 3x8 60kg",
+      "expected": {
+        "exercises": [
+          {
+            "name": "zercher squats",
+            "sets": 3,
+            "reps": 8,
+            "weight_kg": 60,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 144
+          }
+        ],
+        "volume": 144,
+        "progression": "Unique squat variation - builds core strength"
+      }
+    },
+    {
+      "input": "circuit training: burpees, mountain climbers, jump squats - 3 rounds",
+      "expected": {
+        "exercises": [
+          {
+            "name": "burpees",
+            "sets": 3,
+            "reps": 10,
+            "weight_kg": null,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 30
+          },
+          {
+            "name": "mountain climbers",
+            "sets": 3,
+            "reps": null,
+            "weight_kg": null,
+            "duration_minutes": 1.5,
+            "distance_km": null,
+            "volume_score": 4.5
+          },
+          {
+            "name": "jump squats",
+            "sets": 3,
+            "reps": 15,
+            "weight_kg": null,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 45
+          }
+        ],
+        "volume": 79.5,
+        "progression": "Full-body circuit - great for conditioning"
+      }
+    },
+    {
+      "input": "yoga flow 45 minutes",
+      "expected": {
+        "exercises": [
+          {
+            "name": "yoga",
+            "sets": 1,
+            "reps": null,
+            "weight_kg": null,
+            "duration_minutes": 45,
+            "distance_km": null,
+            "volume_score": 22.5
+          }
+        ],
+        "volume": 22.5,
+        "progression": "Flexibility and recovery - balances strength training"
+      }
+    },
+    {
+      "input": "tabata workout: 20 seconds work, 10 seconds rest, 8 rounds",
+      "expected": {
+        "exercises": [
+          {
+            "name": "tabata",
+            "sets": 8,
+            "reps": null,
+            "weight_kg": null,
+            "duration_minutes": 4,
+            "distance_km": null,
+            "volume_score": 32
+          }
+        ],
+        "volume": 32,
+        "progression": "High-intensity interval training - efficient fat burning"
+      }
+    },
+    {
+      "input": "strongman training: tire flips 4x5 200kg tire",
+      "expected": {
+        "exercises": [
+          {
+            "name": "tire flips",
+            "sets": 4,
+            "reps": 5,
+            "weight_kg": 200,
+            "duration_minutes": null,
+            "distance_km": null,
+            "volume_score": 400
+          }
+        ],
+        "volume": 400,
+        "progression": "Extreme conditioning - builds real-world strength"
+      }
+    },
+    {
+      "input": "pilates reformer 50 minutes",
+      "expected": {
+        "exercises": [
+          {
+            "name": "pilates",
+            "sets": 1,
+            "reps": null,
+            "weight_kg": null,
+            "duration_minutes": 50,
+            "distance_km": null,
+            "volume_score": 25
+          }
+        ],
+        "volume": 25,
+        "progression": "Core stability and flexibility - great cross-training"
+      }
+    },
+    {
+      "input": "kickboxing class 45 minutes",
+      "expected": {
+        "exercises": [
+          {
+            "name": "kickboxing",
+            "sets": 1,
+            "reps": null,
+            "weight_kg": null,
+            "duration_minutes": 45,
+            "distance_km": null,
+            "volume_score": 90
+          }
+        ],
+        "volume": 90,
+        "progression": "Martial arts cardio - coordination and stress relief"
+      }
+    },
+    {
+      "input": "rock climbing 2 hours indoor",
+      "expected": {
+        "exercises": [
+          {
+            "name": "rock climbing",
+            "sets": 1,
+            "reps": null,
+            "weight_kg": null,
+            "duration_minutes": 120,
+            "distance_km": null,
+            "volume_score": 120
+          }
+        ],
+        "volume": 120,
+        "progression": "Full-body climbing - builds functional strength"
+      }
+    }
+  ]
+}

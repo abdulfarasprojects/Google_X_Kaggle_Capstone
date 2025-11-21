@@ -12,6 +12,10 @@ from dataclasses import dataclass
 from tools.base import BaseTool, ToolResult
 from config.settings import settings
 
+# Observability imports
+from observability.tracing import traced
+from observability.metrics import record_request, record_response_time, record_error
+
 from tools.nutrition.reference_data import nutrition_reference
 
 logger = logging.getLogger(__name__)
@@ -212,6 +216,7 @@ nutrition_calculator = MealNutritionCalculatorTool()
 
 
 # Convenience function for direct use
+@traced("calculate_meal_nutrition")
 async def calculate_meal_nutrition(
     parsed_items: List[Dict[str, Any]],
     meal_type: str,
