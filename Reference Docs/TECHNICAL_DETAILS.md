@@ -1387,6 +1387,6 @@ TELEGRAM_ADMIN_USER_ID=<your telegram user id>
 **Status**: Complete
 
 For additional information, see:
-- [Executive Summary](EXECUTIVE_SUMMARY.md)
-- [Project Journey](PROJECT_JOURNEY.md)
-- [Main README](README.md)
+- [Executive Summary]
+- [Project Journey]
+- [Main README]
