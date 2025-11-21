@@ -183,6 +183,9 @@ The multi-agent pattern showcases:
 ---
 
 **Links:**
-- 📹 Demo Video: 
+- 📹 Demo Video:
+  - Observability dashboard: https://youtu.be/aZwx_-w-oqM
+  - Bot onboarding demo: https://youtube.com/shorts/CdRITDOiAU0?feature=share
+  - Bot logging demo: https://youtube.com/shorts/PbgJE9OIn6I?feature=share
 - 💻 GitHub Repo: https://github.com/abdulfarasprojects/Google_X_Kaggle_Capstone
 - 📚 Full Documentation: See TECHNICAL_DETAILS.md
